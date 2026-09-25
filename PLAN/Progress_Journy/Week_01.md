@@ -33,3 +33,22 @@
 * Spring Boot 3.x 기본 프로젝트 뼈대 생성 (Gradle Wrapper)
 * 공통 웹 레이아웃(Tailwind CSS) 및 H2 데이터베이스 연동
 * User 엔티티 및 회원가입/로그인 (Spring Security) 개발 착수
+
+---
+
+### 📝 2026-09-26 (토)
+
+#### 1. 진행 내용 (What was done)
+* **GitHub 원격 저장소 자동 생성 및 연동**:
+  * 저장소명: `classPlatform-made-by-AI` (URL: `https://github.com/spicybean/classPlatform-made-by-AI`)
+  * Java/Gradle 환경에 맞춘 `.gitignore` 및 공식 `README.md` 작성.
+  * Git 초기화(`git init`), 첫 커밋(`Initial commit`), `main` 브랜치 원격 push 완료.
+* **뼈대 작업(Scaffolding) 범위 정의**:
+  * Spring Boot 3.x + Gradle 빌드 설정
+  * 패키지 구조(`domain/`, `global/`) 및 `application.yml` 환경 설정
+  * Tailwind CSS 레이아웃 및 최초 스모크 테스트 계획 수립.
+
+#### 2. 다음 진행 계획 (Next Steps)
+* Spring Boot 3.x 기본 프로젝트 뼈대(Gradle 빌드 스크립트, Application 클래스, application.yml) 생성
+* 로컬 서버 실행 검증 (Smoke Test) 및 GitHub 커밋/푸시
+
