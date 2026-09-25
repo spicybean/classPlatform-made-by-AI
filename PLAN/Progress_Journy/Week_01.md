@@ -43,6 +43,10 @@
   * 저장소명: `classPlatform-made-by-AI` (URL: `https://github.com/spicybean/classPlatform-made-by-AI`)
   * Java/Gradle 환경에 맞춘 `.gitignore` 및 공식 `README.md` 작성.
   * Git 초기화(`git init`), 첫 커밋(`Initial commit`), `main` 브랜치 원격 push 완료.
+* **Git-flow 브랜치 전략 구성 완료**:
+  * `main`을 기준으로 `develop`, `hotfix`, `release`, `test` 4개 브랜치 신규 생성.
+  * `main`의 전체 내용을 `develop`으로 동기화 및 기본 작업 브랜치로 전환(`git checkout develop`).
+  * 생성된 모든 브랜치를 GitHub 원격 저장소(`origin`)에 push 완료.
 * **뼈대 작업(Scaffolding) 범위 정의**:
   * Spring Boot 3.x + Gradle 빌드 설정
   * 패키지 구조(`domain/`, `global/`) 및 `application.yml` 환경 설정
