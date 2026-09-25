@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/default :: layout(~{::content})}">
+<body>
+<div th:fragment="content" class="space-y-8">
+
+    <!-- 히어로 배너 섹션 -->
+    <section class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-8 sm:p-10 text-white shadow-lg relative overflow-hidden">
+        <div class="relative z-10 max-w-2xl">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/20 text-white backdrop-blur-sm mb-4">
+                🚀 스프링 부트 뼈대 세팅 완료
+            </span>
+            <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+                스마트한 강의 준비와 편리한 과제 관리, <span class="text-blue-200">UniClass</span>
+            </h1>
+            <p class="mt-3 text-sm sm:text-base text-blue-100 leading-relaxed">
+                강의 자료 파편화는 이제 그만! 1~16주차 자료실, 원클릭 수업 복제, 스피드 과제 채점 및 4자리 간편 출석까지 하나의 플랫폼에서 해결하세요.
+            </p>
+            <div class="mt-6 flex flex-wrap gap-3">
+                <button type="button" class="bg-white text-blue-600 hover:bg-blue-50 font-bold px-5 py-2.5 rounded-xl shadow transition text-sm flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    새 수업 개설하기 (교수용)
+                </button>
+                <button type="button" class="bg-blue-500/40 hover:bg-blue-500/60 text-white font-semibold px-5 py-2.5 rounded-xl border border-white/20 backdrop-blur-sm transition text-sm flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                    초대 코드로 참가하기 (학생용)
+                </button>
+            </div>
+        </div>
+        <div class="absolute -right-10 -bottom-10 w-80 h-80 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+    </section>
+
+    <!-- 빠른 현황 & 핵심 기능 안내 카드 -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- 기능 1 -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl mb-4">
+                📚
+            </div>
+            <h3 class="font-bold text-slate-900 text-lg">1~16주차 자료실 & 강의모드</h3>
+            <p class="text-sm text-slate-500 mt-2 leading-relaxed">
+                PPT, PDF, ZIP 등 주차별 자료를 체계적으로 분류하고 교탁에서 바로 전체화면 슬라이드로 수업을 진행합니다.
+            </p>
+        </div>
+
+        <!-- 기능 2 -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xl mb-4">
+                ✍️
+            </div>
+            <h3 class="font-bold text-slate-900 text-lg">스피드 그레이더 (Speed Grader)</h3>
+            <p class="text-sm text-slate-500 mt-2 leading-relaxed">
+                다운로드 없이 브라우저에서 학생 과제를 즉시 열람하고, 루브릭 기준표를 클릭해 3초 만에 채점을 완료합니다.
+            </p>
+        </div>
+
+        <!-- 기능 3 -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+            <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xl mb-4">
+                ⚡
+            </div>
+            <h3 class="font-bold text-slate-900 text-lg">4자리 간편 실시간 출석</h3>
+            <p class="text-sm text-slate-500 mt-2 leading-relaxed">
+                수업 시작 시 화면에 4자리 번호를 띄우면 학생들이 스마트폰으로 입력해 1초 만에 출석을 끝냅니다.
+            </p>
+        </div>
+    </section>
+
+    <!-- 내 수업 목록 미리보기 (Preview) -->
+    <section class="space-y-4">
+        <div class="flex justify-between items-center">
+            <div>
+                <h2 class="text-xl font-bold text-slate-900">내 수업 목록</h2>
+                <p class="text-xs text-slate-500 mt-0.5" th:text="'현재 학기: ' + ${currentSemester}">현재 학기: 2026-1학기</p>
+            </div>
+            <span class="text-xs text-slate-400 font-medium">Phase 1 DB 연동 준비 중</span>
+        </div>
+
+        <!-- 샘플 수업 카드 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:border-blue-400 transition group">
+                <div class="h-28 bg-gradient-to-r from-blue-500 to-cyan-500 p-5 flex flex-col justify-between text-white">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-semibold px-2 py-0.5 bg-white/20 rounded backdrop-blur-sm">01분반</span>
+                        <span class="text-xs opacity-80">초대코드: <strong class="tracking-wider">CS101A</strong></span>
+                    </div>
+                    <h3 class="font-bold text-lg leading-tight group-hover:underline">자료구조 및 알고리즘</h3>
+                </div>
+                <div class="p-5 space-y-3">
+                    <p class="text-xs text-slate-500">담당: 홍길동 교수님 (공학관 402호)</p>
+                    <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                        <span class="text-slate-600 font-medium">등록된 과제: <strong class="text-blue-600">2건</strong></span>
+                        <span class="text-slate-400">수강생 42명</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:border-indigo-400 transition group">
+                <div class="h-28 bg-gradient-to-r from-indigo-500 to-purple-500 p-5 flex flex-col justify-between text-white">
+                    <div class="flex justify-between items-start">
+                        <span class="text-xs font-semibold px-2 py-0.5 bg-white/20 rounded backdrop-blur-sm">02분반</span>
+                        <span class="text-xs opacity-80">초대코드: <strong class="tracking-wider">AI204B</strong></span>
+                    </div>
+                    <h3 class="font-bold text-lg leading-tight group-hover:underline">인공지능 개론</h3>
+                </div>
+                <div class="p-5 space-y-3">
+                    <p class="text-xs text-slate-500">담당: 이순신 교수님 (IT융합관 201호)</p>
+                    <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                        <span class="text-slate-600 font-medium">등록된 과제: <strong class="text-amber-600">1건 마감임박</strong></span>
+                        <span class="text-slate-400">수강생 58명</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 새 수업 만들기 점선 카드 -->
+            <button type="button" class="h-full min-h-[190px] border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-2xl flex flex-col items-center justify-center p-6 text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 transition group">
+                <div class="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center mb-2 transition">
+                    <svg class="w-5 h-5 text-slate-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                </div>
+                <span class="font-bold text-sm">새로운 수업 추가하기</span>
+                <span class="text-xs text-slate-400 mt-1">수업을 개설하거나 초대코드로 참여하세요</span>
+            </button>
+        </div>
+    </section>
+
+</div>
+</body>
+</html>

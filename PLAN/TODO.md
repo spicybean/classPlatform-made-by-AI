@@ -8,10 +8,11 @@
 ## 📌 Phase 1: 핵심 MVP 개발 (1주차 목표)
 
 ### 1. 프로젝트 초기 환경 구축
-- [ ] Spring Boot 3.x 프로젝트 뼈대 생성 (Gradle Wrapper, Java 25)
-- [ ] 필수 의존성 설정 (`build.gradle`: Spring Web, Thymeleaf, Spring Data JPA, H2, Spring Security, Validation)
-- [ ] Tailwind CSS 연동 (CDN 또는 Standalone CLI) 및 공통 레이아웃 템플릿 작성
-- [ ] H2 Console 및 DB 연결 테스트
+- [x] Spring Boot 3.x 프로젝트 뼈대 생성 (Gradle Wrapper, Java 25)
+- [x] 필수 의존성 설정 (`build.gradle`: Spring Web, Thymeleaf, Spring Data JPA, H2, Spring Security, Validation)
+- [x] Tailwind CSS 연동 및 공통 레이아웃 템플릿 작성 (`layout/default.html`, `index.html`)
+- [x] H2 Console 및 DB 연결 테스트 (웹 콘솔 정상 구동 확인)
+- [x] 로컬 서버 스모크 테스트 통과 (HTTP 200 OK)
 
 ### 2. 사용자 인증 및 권한 (Auth & User)
 - [ ] `User` 엔티티 설계 (이메일, 암호화 비밀번호, 실명, 학번/교번, 역할)

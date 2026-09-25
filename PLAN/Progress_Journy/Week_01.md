@@ -47,12 +47,17 @@
   * `main`을 기준으로 `develop`, `hotfix`, `release`, `test` 4개 브랜치 신규 생성.
   * `main`의 전체 내용을 `develop`으로 동기화 및 기본 작업 브랜치로 전환(`git checkout develop`).
   * 생성된 모든 브랜치를 GitHub 원격 저장소(`origin`)에 push 완료.
-* **뼈대 작업(Scaffolding) 범위 정의**:
-  * Spring Boot 3.x + Gradle 빌드 설정
-  * 패키지 구조(`domain/`, `global/`) 및 `application.yml` 환경 설정
-  * Tailwind CSS 레이아웃 및 최초 스모크 테스트 계획 수립.
+* **스프링 부트(Spring Boot) 핵심 뼈대 구축 완료**:
+  * Spring Boot + Java 25 환경에 맞춘 Gradle Wrapper(`gradlew`, `gradlew.bat`, `gradle-9.7.1`) 연동.
+  * `application.yml` 작성: H2 인메모리 DB 연동, 웹 콘솔(`/h2-console`) 활성화, 파일 업로드 용량 **20MB** 확장.
+  * `SecurityConfig`: 초기 개발용 정적 리소스 및 H2 콘솔 접근 허용, BCryptPasswordEncoder 빈 등록.
+  * `HomeController`: 메인 대시보드 뷰 컨트롤러 연동.
+  * `Thymeleaf + Tailwind CSS`: 반응형 공통 레이아웃(`layout/default.html`) 및 홈 화면(`index.html`) 구현.
+* **로컬 서버 스모크 테스트 (Smoke Test) 검증 통과**:
+  * `./gradlew bootRun` 실행 ➡️ Tomcat 8080 포트 정상 기동.
+  * 메인 홈(`http://localhost:8080/`) HTTP 200 OK 렌더링 확인.
+  * H2 콘솔(`http://localhost:8080/h2-console`) 정상 접속 확인.
 
 #### 2. 다음 진행 계획 (Next Steps)
-* Spring Boot 3.x 기본 프로젝트 뼈대(Gradle 빌드 스크립트, Application 클래스, application.yml) 생성
-* 로컬 서버 실행 검증 (Smoke Test) 및 GitHub 커밋/푸시
+* Phase 1 - 2단계: `User` 엔티티 설계 및 Spring Security 기반 회원가입/로그인 (학번/교번 필수 수집 및 역할 분리) 구현 착수
 
