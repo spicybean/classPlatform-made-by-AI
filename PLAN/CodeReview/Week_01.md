@@ -645,3 +645,131 @@ public String register(@Valid @ModelAttribute("form") UserRegisterDto form,
 1. `User` 엔티티 `updatedAt`, `isActive` 필드 추가
 2. `CustomUserDetails` 상태 필드 연동
 3. `UserService` `DataIntegrityViolationException` 핸들링
+
+---
+
+## 📅 2026-09-26 (토) - 4차 리뷰: 3차 리뷰 반영 후 변경 코드 재검토
+
+> **리뷰 대상**: 3차 리뷰 최우선 수정 사항 반영 후 변경된 4개 파일  
+> `UserRegisterDto.java` / `HomeController.java` / `AuthController.java` / `index.html`
+
+---
+
+### 📁 1. `UserRegisterDto.java` — 비밀번호 최대 길이 추가
+
+```java
+// 이전
+@Size(min = 6, message = "비밀번호는 최소 6자 이상이어야 합니다.")
+
+// 이후
+@Size(min = 6, max = 100, message = "비밀번호는 6자 이상 100자 이하로 입력해 주세요.")
+```
+
+#### ✅ 개선 확인 (3차 지적 → 반영 완료)
+* BCrypt 길이 공격(`Long Password DoS`) 방어 목적으로 `max = 100` 추가됨.
+* 에러 메시지도 "최소 6자 이상"에서 "6자 이상 100자 이하"로 사용자에게 제한 범위를 명확하게 알려주도록 개선됨.
+
+#### ⚠️ 추가 발견 사항 — 없음
+* 현재 단계에서 완벽한 수정. 추가 지적 사항 없음. ✔️
+
+---
+
+### 📁 2. `HomeController.java` — 로그아웃 메시지 처리
+
+```java
+@GetMapping("/")
+public String index(@RequestParam(value = "logout", required = false) String logout, Model model) {
+    model.addAttribute("appName", "UniClass");
+    model.addAttribute("currentSemester", currentSemester);
+    if (logout != null) {
+        model.addAttribute("logoutMessage", "성공적으로 로그아웃되었습니다.");
+    }
+    return "index";
+}
+```
+
+#### ✅ 개선 확인 (3차 지적 → 반영 완료)
+* `?logout=true` 파라미터를 컨트롤러에서 수신하여 `logoutMessage`를 모델에 담아 화면에 전달.
+* `required = false`로 안전하게 처리하여 파라미터 없는 일반 `/` 접근 시에도 에러 없이 정상 동작.
+
+#### ⚠️ 추가 발견 사항
+* **Import 순서**: `RequestParam` import가 줄 8에 공백 이후 독립적으로 삽입되어 있음(`import org.springframework.web.bind.annotation.GetMapping;` 뒤에 한 줄 띄고 추가). 기능 오류는 없으나, 코딩 컨벤션상 import는 모두 한 블록으로 모으는 것이 가독성이 좋음 — 마이너 의견.
+* 기능 로직 자체는 완벽함. ✔️
+
+---
+
+### 📁 3. `AuthController.java` — 로그인 상태 접근 차단
+
+```java
+@GetMapping("/login")
+public String loginPage(...) {
+    if (isAuthenticated()) { return "redirect:/"; }
+    ...
+}
+
+@GetMapping("/register")
+public String registerPage(Model model) {
+    if (isAuthenticated()) { return "redirect:/"; }
+    ...
+}
+
+@PostMapping("/register")
+public String register(...) {
+    if (isAuthenticated()) { return "redirect:/"; }
+    ...
+}
+
+private boolean isAuthenticated() {
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    return auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken);
+}
+```
+
+#### ✅ 개선 확인 (3차 지적 → 반영 완료)
+* `isAuthenticated()` 헬퍼 메서드로 로직을 중복 없이 깔끔하게 추출하여 3개 메서드 모두에서 재사용. 단일 책임 원칙(SRP) 준수.
+* `AnonymousAuthenticationToken` 타입 체크를 포함해 비로그인 사용자(익명 인증 객체)를 정확하게 구분하는 올바른 구현. Spring Security에서 흔히 놓치는 부분을 정확히 처리함.
+* `POST /register`에도 체크를 추가하여 직접 curl 등으로 POST 요청을 보내는 경우도 방어.
+
+#### ⚠️ 추가 발견 사항
+* 현재 `POST /register`에서 `isAuthenticated()` 체크가 `bindingResult.hasErrors()` 보다 앞에 위치하므로 로그인 상태에서 유효하지 않은 폼을 제출해도 에러 메시지 없이 바로 `/`로 리다이렉트됨 — 이는 의도된 올바른 동작.
+* 이 방식은 충분히 좋지만, 장기적으로는 Spring Security 설정 레벨에서 `authorizeHttpRequests`에 `/login`과 `/register` 접근 시 인증된 사용자를 redirect시키는 방식(`authenticated().redirect()`)을 사용하면 컨트롤러 코드를 더 단순하게 유지할 수 있음 — 현재 단계에서는 불필요한 변경이므로 기록만.
+
+---
+
+### 📁 4. `index.html` — 로그아웃 알림 배너
+
+```html
+<!-- 로그아웃 알림 배너 -->
+<div th:if="${logoutMessage}" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 ...">
+    <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 ...">
+        <svg ...> <!-- 체크마크 아이콘 --> </svg>
+    </div>
+    <div>
+        <p class="font-bold text-slate-900" th:text="${logoutMessage}">성공적으로 로그아웃되었습니다.</p>
+        <p class="text-xs text-slate-500 mt-0.5">안전하게 세션이 종료되었습니다.</p>
+    </div>
+</div>
+```
+
+#### ✅ 개선 확인 (3차 지적 → 반영 완료)
+* `th:if="${logoutMessage}"`로 로그아웃 메시지가 있을 때만 배너가 렌더링되어 일반 홈 접근 시에는 전혀 노출되지 않음.
+* 배너 디자인이 `login.html`의 성공 메시지 스타일(emerald 계열)과 일관성 있게 통일됨.
+* 폴백 텍스트("성공적으로 로그아웃되었습니다.")가 HTML에 포함되어 Thymeleaf 없이도 정적으로 렌더링될 때 기본값이 표시됨 — Thymeleaf Natural Templating 원칙 준수.
+
+#### ⚠️ 추가 발견 사항
+* 현재 배너를 닫을 수 있는 **X 버튼(dismiss 버튼)** 이 없어 새로고침 없이는 배너가 사라지지 않음. `?logout=true` URL 파라미터가 유지되는 한 계속 표시됨. 사용자 경험상 3~5초 후 자동으로 사라지거나 닫기 버튼이 있으면 더 좋음 — 선택적 개선 사항.
+
+---
+
+### 📊 4차 리뷰 종합
+
+| 항목 | 3차 리뷰 지적 | 4차 리뷰 (반영 후) |
+| :--- | :---: | :---: |
+| **비밀번호 최대 길이 100자** | ⚠️ 최우선 지적 | ✅ 반영 완료 |
+| **로그아웃 메시지 처리** | ⚠️ 최우선 지적 | ✅ 반영 완료 |
+| **로그인 상태 시 인증 페이지 리다이렉트** | ⚠️ 추가 발견 | ✅ 반영 완료 |
+| **배너 자동 닫힘/X버튼** | — | 📝 선택적 개선 권장 |
+
+**총평**: 3차 리뷰에서 최우선으로 지적한 2가지 사항이 모두 올바르게 반영되었으며, 추가로 발견되었던 `AuthController` 로그인 상태 차단까지 깔끔하게 구현됨. `isAuthenticated()` 헬퍼 메서드의 구현 방식이 특히 우수함.
+
+> **현재 상태**: Phase 1 - 2단계(사용자 인증 및 권한) 코드가 리뷰 기준으로 프로덕션 수준에 근접하게 정비됨. 배너 닫힘 버튼은 선택 사항이므로 바로 **Phase 1 - 3단계(수업 공간 및 수강 관리)** 진행 가능.
