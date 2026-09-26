@@ -135,10 +135,10 @@
 
             const notifySuccess = () => {
                 if (btnText) {
-                    const originalText = btnText.innerText;
                     btnText.innerText = '복사됨!';
-                    setTimeout(() => {
-                        btnText.innerText = originalText;
+                    if (window._copyTimer) clearTimeout(window._copyTimer);
+                    window._copyTimer = setTimeout(() => {
+                        btnText.innerText = '복사';
                     }, 2000);
                 }
             };
