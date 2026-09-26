@@ -28,7 +28,7 @@
                        placeholder="예: CS101A"
                        class="w-full text-center tracking-[0.3em] font-mono text-2xl font-bold uppercase px-4 py-3 rounded-xl border border-slate-300 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm placeholder:text-slate-300 placeholder:tracking-normal placeholder:font-sans placeholder:text-base">
                 <p th:if="${#fields.hasErrors('inviteCode')}" th:errors="*{inviteCode}" class="text-xs text-rose-600 mt-1.5 font-medium text-center"></p>
-                <p class="text-[11px] text-slate-400 mt-2 text-center">대소문자 구분 없이 입력하실 수 있습니다.</p>
+                <p class="text-[11px] text-slate-400 mt-2 text-center">영문 대문자 및 숫자로 자동 변환됩니다.</p>
             </div>
 
             <!-- 참가 버튼 -->
