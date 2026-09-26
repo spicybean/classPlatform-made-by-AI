@@ -23,6 +23,9 @@ public class UserRegisterDto {
     @Size(min = 6, max = 100, message = "비밀번호는 6자 이상 100자 이하로 입력해 주세요.")
     private String password;
 
+    @NotBlank(message = "비밀번호 확인을 입력해 주세요.")
+    private String passwordConfirm;
+
     @NotBlank(message = "이름을 입력해 주세요.")
     private String name;
 

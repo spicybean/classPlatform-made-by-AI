@@ -34,12 +34,26 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role;
 
+    @Column(nullable = false)
+    private boolean isActive = true; // 계정 활성 상태
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
     @PrePersist
     public void prePersist() {
-        this.createdAt = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+        this.isActive = true;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 
     @Builder
@@ -49,5 +63,10 @@ public class User {
         this.name = name;
         this.studentNo = studentNo;
         this.role = role != null ? role : Role.ROLE_STUDENT;
+        this.isActive = true;
+    }
+
+    public void deactivate() {
+        this.isActive = false;
     }
 }

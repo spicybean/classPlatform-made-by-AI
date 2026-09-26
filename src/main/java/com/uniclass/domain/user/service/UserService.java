@@ -4,6 +4,7 @@ import com.uniclass.domain.user.dto.UserRegisterDto;
 import com.uniclass.domain.user.entity.User;
 import com.uniclass.domain.user.repository.UserRepository;
 import com.uniclass.global.security.CustomUserDetails;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -25,6 +26,10 @@ public class UserService implements UserDetailsService {
 
     @Transactional
     public Long register(UserRegisterDto dto) {
+        if (!dto.getPassword().equals(dto.getPasswordConfirm())) {
+            throw new IllegalArgumentException("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+        }
+
         if (userRepository.existsByEmail(dto.getEmail())) {
             throw new IllegalArgumentException("이미 가입된 이메일입니다.");
         }
@@ -40,13 +45,17 @@ public class UserService implements UserDetailsService {
                 .role(dto.getRole())
                 .build();
 
-        return userRepository.save(user).getId();
+        try {
+            return userRepository.save(user).getId();
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("이미 가입된 이메일 또는 학번/교번입니다.");
+        }
     }
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User user = userRepository.findByEmail(email.trim().toLowerCase())
-                .orElseThrow(() -> new UsernameNotFoundException("가입되지 않은 이메일입니다: " + email));
+                .orElseThrow(() -> new UsernameNotFoundException("가입되지 않은 이메일입니다."));
 
         return new CustomUserDetails(user);
     }
