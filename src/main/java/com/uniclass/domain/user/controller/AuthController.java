@@ -3,6 +3,9 @@ package com.uniclass.domain.user.controller;
 import com.uniclass.domain.user.dto.UserRegisterDto;
 import com.uniclass.domain.user.service.UserService;
 import jakarta.validation.Valid;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -24,6 +27,9 @@ public class AuthController {
     public String loginPage(@RequestParam(value = "error", required = false) String error,
                             @RequestParam(value = "registered", required = false) String registered,
                             Model model) {
+        if (isAuthenticated()) {
+            return "redirect:/";
+        }
         if (error != null) {
             model.addAttribute("errorMessage", "이메일 또는 비밀번호가 일치하지 않습니다.");
         }
@@ -35,6 +41,9 @@ public class AuthController {
 
     @GetMapping("/register")
     public String registerPage(Model model) {
+        if (isAuthenticated()) {
+            return "redirect:/";
+        }
         model.addAttribute("form", new UserRegisterDto());
         return "auth/register";
     }
@@ -43,6 +52,9 @@ public class AuthController {
     public String register(@Valid @ModelAttribute("form") UserRegisterDto form,
                            BindingResult bindingResult,
                            Model model) {
+        if (isAuthenticated()) {
+            return "redirect:/";
+        }
         if (bindingResult.hasErrors()) {
             return "auth/register";
         }
@@ -54,5 +66,10 @@ public class AuthController {
             bindingResult.reject("duplicate", e.getMessage());
             return "auth/register";
         }
+    }
+
+    private boolean isAuthenticated() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken);
     }
 }

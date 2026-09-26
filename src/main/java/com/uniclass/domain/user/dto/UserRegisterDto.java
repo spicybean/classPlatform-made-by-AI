@@ -20,7 +20,7 @@ public class UserRegisterDto {
     private String email;
 
     @NotBlank(message = "비밀번호를 입력해 주세요.")
-    @Size(min = 6, message = "비밀번호는 최소 6자 이상이어야 합니다.")
+    @Size(min = 6, max = 100, message = "비밀번호는 6자 이상 100자 이하로 입력해 주세요.")
     private String password;
 
     @NotBlank(message = "이름을 입력해 주세요.")

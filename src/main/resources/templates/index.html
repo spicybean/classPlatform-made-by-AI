@@ -3,6 +3,17 @@
 <body>
 <div th:fragment="content" class="space-y-8">
 
+    <!-- 로그아웃 알림 배너 -->
+    <div th:if="${logoutMessage}" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center gap-3 shadow-sm">
+        <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <div>
+            <p class="font-bold text-slate-900" th:text="${logoutMessage}">성공적으로 로그아웃되었습니다.</p>
+            <p class="text-xs text-slate-500 mt-0.5">안전하게 세션이 종료되었습니다.</p>
+        </div>
+    </div>
+
     <!-- 히어로 배너 섹션 -->
     <section class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-8 sm:p-10 text-white shadow-lg relative overflow-hidden">
         <div class="relative z-10 max-w-2xl">
