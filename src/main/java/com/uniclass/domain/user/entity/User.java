@@ -34,8 +34,8 @@ public class User {
     @Column(nullable = false, length = 20)
     private Role role;
 
-    @Column(nullable = false)
-    private boolean isActive = true; // 계정 활성 상태
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true; // 계정 활성 상태
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -48,7 +48,6 @@ public class User {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
-        this.isActive = true;
     }
 
     @PreUpdate
@@ -63,10 +62,10 @@ public class User {
         this.name = name;
         this.studentNo = studentNo;
         this.role = role != null ? role : Role.ROLE_STUDENT;
-        this.isActive = true;
+        this.active = true;
     }
 
     public void deactivate() {
-        this.isActive = false;
+        this.active = false;
     }
 }

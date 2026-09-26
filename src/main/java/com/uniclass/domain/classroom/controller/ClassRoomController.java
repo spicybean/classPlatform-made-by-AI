@@ -20,23 +20,29 @@ import com.uniclass.domain.material.service.MaterialService;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Value;
+
 @Controller
 @RequestMapping("/classes")
 public class ClassRoomController {
 
     private final ClassRoomService classRoomService;
     private final MaterialService materialService;
+    private final String currentSemester;
 
-    public ClassRoomController(ClassRoomService classRoomService, MaterialService materialService) {
+    public ClassRoomController(ClassRoomService classRoomService,
+                               MaterialService materialService,
+                               @Value("${uniclass.current-semester:2026-1학기}") String currentSemester) {
         this.classRoomService = classRoomService;
         this.materialService = materialService;
+        this.currentSemester = currentSemester;
     }
 
     @GetMapping("/new")
     @PreAuthorize("hasRole('ROLE_INSTRUCTOR')")
     public String newClassRoomPage(@AuthenticationPrincipal CustomUserDetails userDetails, Model model) {
         CreateClassRoomDto form = new CreateClassRoomDto();
-        form.setSemester("2026-1학기");
+        form.setSemester(currentSemester);
         model.addAttribute("form", form);
         return "classroom/create";
     }
@@ -61,7 +67,10 @@ public class ClassRoomController {
     }
 
     @GetMapping("/join")
-    public String joinClassRoomPage(Model model) {
+    public String joinClassRoomPage(@AuthenticationPrincipal CustomUserDetails userDetails, Model model) {
+        if (userDetails.getRole() == Role.ROLE_INSTRUCTOR) {
+            return "redirect:/?error=instructor_cannot_join";
+        }
         model.addAttribute("form", new JoinClassRoomDto());
         return "classroom/join";
     }
@@ -71,6 +80,10 @@ public class ClassRoomController {
                                @Valid @ModelAttribute("form") JoinClassRoomDto form,
                                BindingResult bindingResult,
                                Model model) {
+        if (userDetails.getRole() == Role.ROLE_INSTRUCTOR) {
+            return "redirect:/?error=instructor_cannot_join";
+        }
+
         if (bindingResult.hasErrors()) {
             return "classroom/join";
         }
@@ -90,6 +103,11 @@ public class ClassRoomController {
                                   @RequestParam(value = "created", required = false) String created,
                                   @RequestParam(value = "joined", required = false) String joined,
                                   Model model) {
+        // 인가 검증: 담당 교수이거나 해당 수업의 수강생(ENROLLED)만 접근 허용
+        if (!classRoomService.isUserEnrolledOrInstructor(id, userDetails.getId())) {
+            return "redirect:/?error=not_enrolled";
+        }
+
         ClassRoom classRoom = classRoomService.getClassRoomDetail(id);
         model.addAttribute("classroom", classRoom);
 

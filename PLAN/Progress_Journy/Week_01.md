@@ -144,7 +144,19 @@
   * `ClassRoomController.java`: 중복 역할 검증 데드코드 제거.
   * `MaterialServiceTest.java`: `EntityManager` 영속성 캐시 클리어 후 다운로드 카운트 DB 반영 엄밀 검증, URL 변조 차단 테스트 추가(전체 통과).
 
+* **7차 보안 감사 및 하드코딩 전수 조치 완료**:
+  * `ClassRoomController` & `ClassRoomService`:
+    * 미수강생(Outsider)의 타 수업 URL 직접 접근 시 즉시 차단(`redirect:/?error=not_enrolled`).
+    * 교수 계정의 수강신청 시도 원천 차단(`redirect:/?error=instructor_cannot_join`).
+    * 수업 개설 시 학기 하드코딩(`"2026-1학기"`) 제거 및 `application.yml` 주입값 동적 연동.
+  * `detail.html`: 초대 코드 복사 박스를 교수 전용으로 격리하고, 수강생에게는 '정상 수강 중' 뱃지 제공.
+  * `GlobalControllerAdvice`: 전역 `@ModelAttribute("currentSemester")` 공급으로 전체 페이지 학기 동적 표기 일원화.
+  * `SecurityConfig`: `/favicon.ico` permitAll 등록으로 불필요한 인증 리다이렉트 방지.
+  * `User` & `ClassRoom`: 엔티티 boolean 필드명(`active`, `archived`) 롬복 표준화.
+  * 테스트 스크립트 검증: `test_security_audit.py`를 통해 비인가 학생의 타 수업 접근 시 302 차단 완벽 검증.
+
 #### 2. 다음 진행 계획 (Next Steps)
 * Phase 1 - 5단계: 과제 출제 및 제출 시스템 (Assignments & Submissions) 개발 착수
+
 
 

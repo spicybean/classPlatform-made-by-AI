@@ -40,6 +40,12 @@ public class HomeController {
         if ("forbidden".equals(error)) {
             model.addAttribute("errorMessage", "해당 작업을 수행할 권한이 없습니다.");
         }
+        if ("not_enrolled".equals(error)) {
+            model.addAttribute("errorMessage", "수강 신청되지 않은 수업입니다. 초대 코드로 먼저 수강신청을 완료해 주세요.");
+        }
+        if ("instructor_cannot_join".equals(error)) {
+            model.addAttribute("errorMessage", "교수 계정은 수강신청을 할 수 없습니다.");
+        }
 
         List<ClassRoomCardDto> myClasses = Collections.emptyList();
         if (userDetails != null) {

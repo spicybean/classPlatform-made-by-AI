@@ -43,8 +43,8 @@
                 </p>
             </div>
 
-            <!-- 우측 초대 코드 영역 -->
-            <div class="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <!-- 우측 영역: 교수 시점 초대 코드 영역 / 학생 시점 수강 상태 영역 -->
+            <div th:if="${isInstructor}" class="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div>
                     <span class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">학생 참여 초대 코드</span>
                     <div class="flex items-center gap-2 mt-1">
@@ -62,6 +62,17 @@
                             </svg>
                             <span id="copyBtnText">복사</span>
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 학생 시점: 수강 중 뱃지 표시 -->
+            <div th:unless="${isInstructor}" class="flex items-center gap-3 bg-emerald-50/60 p-4 rounded-xl border border-emerald-200/80">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <div>
+                        <span class="block text-[11px] font-bold text-emerald-800 uppercase tracking-wider">수강 상태</span>
+                        <span class="font-bold text-sm text-emerald-900">정상 수강 중 (Enrolled)</span>
                     </div>
                 </div>
             </div>

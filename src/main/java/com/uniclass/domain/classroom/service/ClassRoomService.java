@@ -143,6 +143,15 @@ public class ClassRoomService {
                 .orElseThrow(() -> new IllegalArgumentException("수업 정보를 찾을 수 없습니다."));
     }
 
+    public boolean isUserEnrolledOrInstructor(Long classroomId, Long userId) {
+        ClassRoom classRoom = classRoomRepository.findById(classroomId)
+                .orElseThrow(() -> new IllegalArgumentException("수업 정보를 찾을 수 없습니다."));
+        if (classRoom.getInstructor().getId().equals(userId)) {
+            return true;
+        }
+        return enrollmentRepository.existsByStudentIdAndClassroomIdAndStatus(userId, classroomId, EnrollmentStatus.ENROLLED);
+    }
+
     private String generateUniqueInviteCode() {
         for (int i = 0; i < 10; i++) {
             StringBuilder sb = new StringBuilder(CODE_LENGTH);

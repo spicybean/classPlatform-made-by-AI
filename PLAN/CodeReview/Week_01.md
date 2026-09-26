@@ -1012,4 +1012,117 @@ assertThat(updated.getDownloadCount()).isEqualTo(1);
 | **코드 정결성** | ✅ 양호 | 데드코드 제거, 상대 경로 구분자 통일 |
 | **테스트 정밀도** | ✅ 양호 | 영속성 컨텍스트 캐시 클리어 후 재조회 검증 |
 
+---
+
+## 📅 2026-09-27 (일) - 7차 보안 취약점 감사, 인가 강화 및 하드코딩 제거 코드 리뷰
+
+---
+
+### 📁 1. `ClassRoomController.java` & `detail.html` — 미수강생(Outsider)의 타 수업 페이지 무단 접근 및 초대 코드 유출 차단
+
+```java
+// ClassRoomController.java
+// 인가 검증: 담당 교수이거나 해당 수업의 수강생(ENROLLED)만 접근 허용
+if (!classRoomService.isUserEnrolledOrInstructor(id, userDetails.getId())) {
+    return "redirect:/?error=not_enrolled";
+}
+```
+
+```html
+<!-- detail.html: 초대 코드는 오직 교수에게만 표시 -->
+<div th:if="${isInstructor}" class="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+    <span id="inviteCodeText" th:text="${classroom.inviteCode}">CS101A</span>
+    ...
+</div>
+<!-- 학생에게는 수강 상태 뱃지 표시 -->
+<div th:unless="${isInstructor}" class="flex items-center gap-3 bg-emerald-50/60 p-4 rounded-xl border border-emerald-200/80">
+    ... 정상 수강 중 (Enrolled) ...
+</div>
+```
+
+#### 🚨 지적 사항 및 조치 완료
+* **취약점**: 로그인한 학생이라면 타 학과/타 수업의 URL(`/classes/{id}`)을 입력하여 수업 상세 설명, 1~16주차 자료 목록, 그리고 **비공개 6자리 초대 코드까지 그대로 노출**되던 인가 취약점 존재.
+* **조치**:
+  1. `ClassRoomService.isUserEnrolledOrInstructor()`를 통해 담당 교수 또는 `ENROLLED` 수강생이 아닌 경우 즉시 `/?error=not_enrolled`로 302 리다이렉트 차단.
+  2. `detail.html`의 초대 코드 복사 박스를 **교수 전용(`th:if="${isInstructor}"`)**으로 격리하고, 학생에게는 **수강 상태 뱃지(`정상 수강 중`)**를 표시하도록 분기.
+  3. `test_security_audit.py` 스크립트를 통해 미수강 외부 학생이 `/classes/1` 접근 시 200 OK 대신 즉시 302 차단되는 것을 실서버에서 완벽히 검증 완료.
+
+---
+
+### 📁 2. `GlobalControllerAdvice.java` & `ClassRoomController.java` — 학기 하드코딩 제거 및 전역 모델화
+
+```java
+// GlobalControllerAdvice.java
+@ControllerAdvice
+public class GlobalControllerAdvice {
+    private final String currentSemester;
+    public GlobalControllerAdvice(@Value("${uniclass.current-semester:2026-1학기}") String currentSemester) {
+        this.currentSemester = currentSemester;
+    }
+    @ModelAttribute("currentSemester")
+    public String currentSemester() {
+        return this.currentSemester;
+    }
+}
+```
+
+#### ⚠️ 지적 사항 및 조치 완료
+* `ClassRoomController`의 `form.setSemester("2026-1학기")` 하드코딩을 제거하고 `@Value` 주입값 사용.
+* `default.html` 상단 바에 쓰이던 `currentSemester`가 홈 이외의 페이지(`/classes/new`, `/classes/1`, `/classes/join` 등)에서 `null`이 되어 하드코딩 fallback에 의존하던 문제를 해결하기 위해, `@ControllerAdvice`를 신설하여 모든 템플릿에 `application.yml`의 학기 정보가 자동으로 일관되게 주입되도록 개선.
+
+---
+
+### 📁 3. `SecurityConfig.java` — `/favicon.ico` permitAll 누락 해결
+
+```java
+.requestMatchers("/", "/login", "/register", "/h2-console/**", "/css/**", "/js/**", "/images/**", "/favicon.ico").permitAll()
+```
+
+#### ⚠️ 지적 사항 및 조치 완료
+* 브라우저의 파비콘 자동 요청 시 비로그인 상태에서 발생하던 불필요한 302 리다이렉트(`/login`) 및 로그 오염 방지.
+
+---
+
+### 📁 4. `User.java` & `ClassRoom.java` — 엔티티 Boolean 필드명 롬복 표준화
+
+```java
+// User.java: isActive -> active (컬럼명 is_active 유지)
+@Column(name = "is_active", nullable = false)
+private boolean active = true;
+
+// ClassRoom.java: isArchived -> archived (컬럼명 is_archived 유지)
+@Column(name = "is_archived", nullable = false)
+private boolean archived = false;
+```
+
+#### ⚠️ 지적 사항 및 조치 완료
+* 롬복 `@Getter`와 자바빈 규약에 따라 `boolean` 필드에 `is` 접두사가 붙어있을 때 발생하는 게터명 왜곡(`isIsActive()`, `isIsArchived()`)을 방지하고 표준화 완료.
+
+---
+
+### 📁 5. `HomeController.java` — 인가 실패 에러 메시지 매핑 추가
+
+```java
+if ("not_enrolled".equals(error)) {
+    model.addAttribute("errorMessage", "수강 신청되지 않은 수업입니다. 초대 코드로 먼저 수강신청을 완료해 주세요.");
+}
+if ("instructor_cannot_join".equals(error)) {
+    model.addAttribute("errorMessage", "교수 계정은 수강신청을 할 수 없습니다.");
+}
+```
+
+---
+
+### 📊 7차 리뷰 종합 평가
+
+| 항목 | 평가 | 세부 조치 결과 |
+| :--- | :---: | :--- |
+| **접근 통제 (인가 보안)** | 🛡️ 해결 | 미수강생 타 수업 URL 접근 100% 차단 (302 리다이렉트) |
+| **정보 은닉 (초대 코드)** | 🛡️ 해결 | 초대 코드는 오직 담당 교수에게만 노출, 학생에겐 수강 뱃지 제공 |
+| **하드코딩 제거** | ✅ 완벽 | `GlobalControllerAdvice` 및 `ClassRoomController` 동적 주입 |
+| **리소스 최적화** | ✅ 완벽 | `/favicon.ico` permitAll 등록으로 불필요한 세션 리다이렉트 차단 |
+| **엔티티 표준화** | ✅ 완벽 | `User.active`, `ClassRoom.archived` 롬복 게터 정합성 확보 |
+| **전체 테스트 검증** | ✅ 통과 | Gradle 4개 태스크, 보안 감사, 풀플로우, 멀티파트 업로드 ALL PASS |
+
+
 

@@ -41,8 +41,8 @@ public class ClassRoom {
     @JoinColumn(name = "instructor_id", nullable = false)
     private User instructor; // 담당 교수
 
-    @Column(nullable = false)
-    private boolean isArchived = false; // 학기 종료 후 아카이빙(보관) 여부
+    @Column(name = "is_archived", nullable = false)
+    private boolean archived = false; // 학기 종료 후 아카이빙(보관) 여부
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -62,10 +62,10 @@ public class ClassRoom {
         this.description = description;
         this.inviteCode = inviteCode;
         this.instructor = instructor;
-        this.isArchived = false;
+        this.archived = false;
     }
 
     public void archive() {
-        this.isArchived = true;
+        this.archived = true;
     }
 }
