@@ -8,8 +8,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class HomeController {
 
-    @Value("${uniclass.current-semester:2026-1학기}")
-    private String currentSemester;
+    private final String currentSemester;
+
+    public HomeController(@Value("${uniclass.current-semester:2026-1학기}") String currentSemester) {
+        this.currentSemester = currentSemester;
+    }
 
     @GetMapping("/")
     public String index(Model model) {

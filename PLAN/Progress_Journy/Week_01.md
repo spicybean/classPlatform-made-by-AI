@@ -58,6 +58,21 @@
   * 메인 홈(`http://localhost:8080/`) HTTP 200 OK 렌더링 확인.
   * H2 콘솔(`http://localhost:8080/h2-console`) 정상 접속 확인.
 
+* **코드 리뷰 피드백 반영 완료**:
+  * `application.yml`에 `uniclass.current-semester` 분리.
+  * `HomeController` 필드 주입을 **생성자 주입**으로 리팩토링.
+  * `layout/default.html` 상단바 학기 뱃지 동적 바인딩 및 인증 링크 적용.
+* **사용자 인증 및 권한 (Auth & User) 기능 구현 완료**:
+  * `Role`: `ROLE_STUDENT`, `ROLE_INSTRUCTOR`, `ROLE_TA`, `ROLE_ALUMNI` 4단계 역할 체계 정의.
+  * `User`: JPA 엔티티 설계 (이메일, BCrypt 암호화 비밀번호, 실명, 학번/교번 필수 수집, 생성일시 자동 기록).
+  * `UserRepository`: 이메일/학번 중복 검증 및 조회 인터페이스 구현.
+  * `UserRegisterDto`: Bean Validation 적용 (이메일 포맷, 비밀번호 6자 이상, 학번 4~20자리 정규식 검증).
+  * `CustomUserDetails` & `UserService`: 비밀번호 암호화 저장, `UserDetailsService` 연동으로 세션 로그인 처리.
+  * `SecurityConfig`: 폼 로그인(`/login`), 로그아웃(`/logout`), 세션 무효화 및 쿠키 삭제, 접근 권한 체계화.
+  * `AuthController`: 로그인/회원가입 뷰 렌더링 및 유효성 검증 에러 처리.
+  * `login.html` & `register.html`: 반응형 모던 UI 폼 및 검증 에러/성공 메시지 피드백 렌더링.
+  * `layout/default.html`: `sec:authorize`를 통한 로그인(사용자명, 학번, 역할 뱃지, 로그아웃 버튼) / 비로그인(로그인, 회원가입 버튼) 상태 분기 처리.
+
 #### 2. 다음 진행 계획 (Next Steps)
-* Phase 1 - 2단계: `User` 엔티티 설계 및 Spring Security 기반 회원가입/로그인 (학번/교번 필수 수집 및 역할 분리) 구현 착수
+* Phase 1 - 3단계: 수업 공간 및 수강 관리 (ClassRoom 엔티티, 6자리 초대 코드 생성, 수업 개설 및 수강 신청 뷰) 개발 착수
 

@@ -15,10 +15,10 @@
 - [x] 로컬 서버 스모크 테스트 통과 (HTTP 200 OK)
 
 ### 2. 사용자 인증 및 권한 (Auth & User)
-- [ ] `User` 엔티티 설계 (이메일, 암호화 비밀번호, 실명, 학번/교번, 역할)
-- [ ] Spring Security 세션 로그인 / 회원가입 구현
-- [ ] 역할별 인가 설정 (`ROLE_INSTRUCTOR`, `ROLE_STUDENT`, `ROLE_TA`)
-- [ ] 회원가입 시 학번/교번 유효성 검증
+- [x] `User` 엔티티 설계 (이메일, 암호화 비밀번호, 실명, 학번/교번, 역할)
+- [x] Spring Security 세션 로그인 / 회원가입 구현 (`/login`, `/register`)
+- [x] 역할별 인가 설정 (`ROLE_INSTRUCTOR`, `ROLE_STUDENT`, `ROLE_TA`, `ROLE_ALUMNI`)
+- [x] 회원가입 시 학번/교번 유효성 검증 (정규식 및 중복 방지)
 
 ### 3. 수업 공간 및 수강 관리 (Classroom & Enrollment)
 - [ ] `ClassRoom` 엔티티 및 `Enrollment` (수강생 매핑) 엔티티 설계
