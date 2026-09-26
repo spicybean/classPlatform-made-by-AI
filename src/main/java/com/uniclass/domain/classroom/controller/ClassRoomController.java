@@ -14,14 +14,22 @@ import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
+import com.uniclass.domain.material.dto.CreateMaterialDto;
+import com.uniclass.domain.material.dto.WeekSectionDto;
+import com.uniclass.domain.material.service.MaterialService;
+
+import java.util.List;
+
 @Controller
 @RequestMapping("/classes")
 public class ClassRoomController {
 
     private final ClassRoomService classRoomService;
+    private final MaterialService materialService;
 
-    public ClassRoomController(ClassRoomService classRoomService) {
+    public ClassRoomController(ClassRoomService classRoomService, MaterialService materialService) {
         this.classRoomService = classRoomService;
+        this.materialService = materialService;
     }
 
     @GetMapping("/new")
@@ -90,6 +98,12 @@ public class ClassRoomController {
 
         boolean isInstructor = classRoom.getInstructor().getId().equals(userDetails.getId());
         model.addAttribute("isInstructor", isInstructor);
+
+        List<WeekSectionDto> weeks = materialService.getWeeksWithMaterials(id, userDetails.getId(), isInstructor);
+        model.addAttribute("weeks", weeks);
+
+        CreateMaterialDto materialForm = new CreateMaterialDto();
+        model.addAttribute("materialForm", materialForm);
 
         if (created != null) {
             model.addAttribute("alertSuccess", "수업이 성공적으로 개설되었습니다! 초대 코드를 학생들에게 공유하세요.");

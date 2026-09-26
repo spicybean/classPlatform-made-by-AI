@@ -74,54 +74,269 @@
         </div>
     </div>
 
-    <!-- 주차별 자료 & 과제 탭 섹션 -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- 1. 주차별 강의 자료실 (Phase 1 - 4단계 타겟) -->
-        <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-4">
-            <div class="flex justify-between items-center">
-                <h2 class="font-bold text-slate-900 text-lg flex items-center gap-2">
-                    📚 <span>주차별 강의 자료실</span>
-                </h2>
-                <span class="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-semibold border border-blue-100">4단계 예정</span>
+    <!-- 자료 등록/삭제 알림 배너 -->
+    <div id="materialSuccessBanner" th:if="${materialSuccessMessage}" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center justify-between shadow-sm transition-opacity duration-500">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
             </div>
-            <p class="text-xs text-slate-500 leading-relaxed">
-                1~16주차 강의 슬라이드(PPT, PDF, ZIP)를 주차별로 등록하고 다운로드할 수 있는 자료실입니다.
-            </p>
-            <div class="p-4 rounded-xl border-2 border-dashed border-slate-200 text-center text-xs text-slate-400">
-                수업 공간 구축 완료! 다음 단계에서 자료 업로드 기능이 활성화됩니다.
+            <p class="font-bold text-slate-900" th:text="${materialSuccessMessage}">자료 알림 메시지</p>
+        </div>
+        <button type="button" onclick="document.getElementById('materialSuccessBanner').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-emerald-100/50 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    </div>
+
+    <div id="materialErrorBanner" th:if="${materialErrorMessage}" class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-medium flex items-center justify-between shadow-sm transition-opacity duration-500">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <p class="font-bold" th:text="${materialErrorMessage}">자료 오류 메시지</p>
+        </div>
+        <button type="button" onclick="document.getElementById('materialErrorBanner').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-rose-100/50 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    </div>
+
+    <!-- 메인 대시보드 그리드: 좌측(강의 자료실) 2열 + 우측(과제/출석/정보) 1열 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- 좌측: 주차별 강의 자료실 (2열 차지) -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-xl font-bold text-slate-900">📚 주차별 강의 자료실</h2>
+                            <span class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200">1~16주차</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">강의 슬라이드(PDF, PPT), 예제 코드(ZIP) 등을 다운로드할 수 있습니다.</p>
+                    </div>
+
+                    <!-- 교수 전용: 자료 업로드 버튼 -->
+                    <div th:if="${isInstructor and not classroom.archived}">
+                        <button type="button" onclick="toggleUploadModal(true)"
+                                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 hover:shadow-lg transition active:scale-95">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                            <span>새 자료 업로드</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 주차별 목록 아코디언/카드 섹션 -->
+                <div class="mt-6 space-y-4">
+                    <div th:each="week : ${weeks}" class="border border-slate-200 rounded-xl overflow-hidden transition">
+                        <!-- 주차 헤더 -->
+                        <div class="bg-slate-50/80 px-4 py-3 flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs"
+                                      th:text="${week.weekNumber}">1</span>
+                                <span class="font-bold text-sm text-slate-900" th:text="${week.title}">1주차</span>
+                            </div>
+                            <span class="text-xs text-slate-400 font-medium"
+                                  th:text="${#lists.size(week.materials)} + '개 자료'">0개 자료</span>
+                        </div>
+
+                        <!-- 주차 내 등록된 자료 리스트 -->
+                        <div class="p-4 bg-white">
+                            <!-- 자료가 없을 때 -->
+                            <div th:if="${#lists.isEmpty(week.materials)}" class="text-center py-4 text-xs text-slate-400">
+                                등록된 강의 자료가 없습니다.
+                            </div>
+
+                            <!-- 자료 목록 -->
+                            <ul th:if="${not #lists.isEmpty(week.materials)}" class="divide-y divide-slate-100">
+                                <li th:each="m : ${week.materials}" class="py-3 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group">
+                                    <div class="flex items-start gap-3">
+                                        <!-- 확장자 아이콘 배지 -->
+                                        <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 mt-0.5"
+                                             th:classappend="${m.fileExtension == 'pdf' ? 'bg-rose-50 text-rose-600 border border-rose-200' :
+                                                               (m.fileExtension == 'ppt' or m.fileExtension == 'pptx' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                                               (m.fileExtension == 'zip' ? 'bg-purple-50 text-purple-600 border border-purple-200' :
+                                                               (m.fileExtension == 'doc' or m.fileExtension == 'docx' ? 'bg-blue-50 text-blue-600 border border-blue-200' :
+                                                               (m.fileExtension == 'xls' or m.fileExtension == 'xlsx' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-600'))))}">
+                                            <span th:text="${m.fileExtension ?: 'FILE'}">PDF</span>
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <h4 class="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition" th:text="${m.title}">자료 제목</h4>
+                                                <!-- 예약/비공개 뱃지 (교수 시점) -->
+                                                <span th:if="${not m.isPublished}" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                                    🔒 비공개
+                                                </span>
+                                                <span th:if="${m.releaseAt != null and not m.isAvailableNow}" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                                                    ⏰ 예약 공개 대기
+                                                </span>
+                                            </div>
+                                            <p th:if="${m.description}" class="text-xs text-slate-500 mt-0.5" th:text="${m.description}">자료 설명</p>
+                                            <div class="flex items-center gap-3 text-[11px] text-slate-400 mt-1">
+                                                <span th:text="${m.originalFilename}">slides.pdf</span>
+                                                <span>·</span>
+                                                <span th:text="${m.formattedFileSize}">2.4 MB</span>
+                                                <span>·</span>
+                                                <span th:text="'다운로드 ' + ${m.downloadCount} + '회'">다운로드 0회</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 버튼 영역 (다운로드 / 교수 전용 삭제) -->
+                                    <div class="flex items-center gap-2 sm:self-center self-end">
+                                        <a th:href="@{'/classes/' + ${classroom.id} + '/materials/' + ${m.id} + '/download'}"
+                                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 text-xs font-semibold border border-slate-200 hover:border-blue-200 transition">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                            <span>다운로드</span>
+                                        </a>
+
+                                        <!-- 교수 전용 삭제 버튼 -->
+                                        <form th:if="${isInstructor}" th:action="@{'/classes/' + ${classroom.id} + '/materials/' + ${m.id} + '/delete'}" method="post"
+                                              onsubmit="return confirm('이 자료를 삭제하시겠습니까?');" class="inline m-0">
+                                            <button type="submit" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="자료 삭제">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- 2. 과제 출제 및 제출 (Phase 1 - 5단계 타겟) -->
-        <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-4">
-            <div class="flex justify-between items-center">
-                <h2 class="font-bold text-slate-900 text-lg flex items-center gap-2">
-                    ✍️ <span>과제 및 채점</span>
-                </h2>
-                <span class="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-semibold border border-emerald-100">5단계 예정</span>
+        <!-- 우측 사이드바: 수업 현황 및 예정 모듈 (1열 차지) -->
+        <div class="space-y-6">
+            <!-- 1. 수업 상세 정보 카드 -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-3">
+                <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wider text-slate-500">수업 운영 정보</h3>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">개설 학기</span>
+                        <span class="font-bold text-slate-800" th:text="${classroom.semester}">2026-1학기</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">과목 코드 / 분반</span>
+                        <span class="font-mono font-bold text-slate-800" th:text="${classroom.courseCode} + ' (' + ${classroom.division} + ')'">CS101 (01분반)</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">담당 교수</span>
+                        <span class="font-bold text-slate-800" th:text="${classroom.instructor.name}">홍길동</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                        <span class="text-slate-500">수업 상태</span>
+                        <span th:if="${not classroom.archived}" class="text-emerald-600 font-bold">진행 중 (Active)</span>
+                        <span th:if="${classroom.archived}" class="text-amber-600 font-bold">보관됨 (Archived)</span>
+                    </div>
+                </div>
             </div>
-            <p class="text-xs text-slate-500 leading-relaxed">
-                마감일, 배점, 지각 허용 기준에 맞춰 과제를 출제하고 학생 제출물을 접수합니다.
-            </p>
-            <div class="p-4 rounded-xl border-2 border-dashed border-slate-200 text-center text-xs text-slate-400">
-                과제 관리 모듈 연결 대기 중입니다.
+
+            <!-- 2. 과제 및 채점 (Phase 1 - 5단계 타겟) -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-slate-900 text-base flex items-center gap-1.5">
+                        ✍️ <span>과제 및 채점</span>
+                    </h3>
+                    <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold border border-emerald-100">5단계 예정</span>
+                </div>
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    마감일, 배점, 지각 허용 기준에 맞춰 과제를 출제하고 제출물을 관리합니다.
+                </p>
+                <div class="p-3.5 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                    과제 관리 모듈 연결 대기 중
+                </div>
+            </div>
+
+            <!-- 3. 실시간 4자리 출석 (Phase 2 타겟) -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-slate-900 text-base flex items-center gap-1.5">
+                        ⚡ <span>4자리 간편 출석</span>
+                    </h3>
+                    <span class="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold border border-indigo-100">Phase 2</span>
+                </div>
+                <p class="text-xs text-slate-500 leading-relaxed">
+                    강의실 스크린에 4자리 번호를 띄우면 모바일로 1초 만에 출석이 완료됩니다.
+                </p>
+                <div class="p-3.5 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                    출석 세션 기능 대기 중
+                </div>
             </div>
         </div>
 
-        <!-- 3. 실시간 4자리 출석 (Phase 2 - 7단계 타겟) -->
-        <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-4">
+    </div>
+
+    <!-- 교수 전용: 자료 업로드 모달 레이어 -->
+    <div id="uploadModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-200 p-6 sm:p-8 space-y-5 animate-in fade-in zoom-in-95 duration-150">
             <div class="flex justify-between items-center">
-                <h2 class="font-bold text-slate-900 text-lg flex items-center gap-2">
-                    ⚡ <span>4자리 간편 출석</span>
-                </h2>
-                <span class="text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-semibold border border-indigo-100">Phase 2</span>
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">새 강의 자료 등록</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">강의 슬라이드, 참고 자료를 업로드합니다.</p>
+                </div>
+                <button type="button" onclick="toggleUploadModal(false)" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
             </div>
-            <p class="text-xs text-slate-500 leading-relaxed">
-                강의실 스크린에 4자리 번호를 띄우면 모바일로 1초 만에 출석이 완료됩니다.
-            </p>
-            <div class="p-4 rounded-xl border-2 border-dashed border-slate-200 text-center text-xs text-slate-400">
-                출석 세션 기능 대기 중입니다.
-            </div>
+
+            <!-- 업로드 폼 -->
+            <form th:action="@{'/classes/' + ${classroom.id} + '/materials'}" th:object="${materialForm}" method="post" enctype="multipart/form-data" class="space-y-4">
+                <!-- 대상 주차 선택 -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">등록 주차</label>
+                    <select th:field="*{weekNumber}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option th:each="w : ${weeks}" th:value="${w.weekNumber}" th:text="${w.title}">1주차</option>
+                    </select>
+                </div>
+
+                <!-- 자료 제목 -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">자료 제목 <span class="text-rose-500">*</span></label>
+                    <input type="text" th:field="*{title}" required placeholder="예: 1주차 강의 슬라이드 (PDF)"
+                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <!-- 자료 설명 -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">자료 설명 (선택)</label>
+                    <textarea th:field="*{description}" rows="2" placeholder="자료에 대한 부가 안내나 학습 지침을 입력하세요."
+                              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+
+                <!-- 파일 선택 (최대 20MB) -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">첨부 파일 <span class="text-rose-500">* (최대 20MB)</span></label>
+                    <input type="file" name="file" required
+                           class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-200 rounded-xl p-1">
+                    <p class="text-[11px] text-slate-400 mt-1">허용 확장자: PDF, PPT, PPTX, Word, Excel, HWP, ZIP, 이미지</p>
+                </div>
+
+                <!-- 공개 설정 -->
+                <div class="pt-2 border-t border-slate-100 space-y-3">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" th:field="*{published}" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
+                        <span class="text-xs font-medium text-slate-700">즉시 학생들에게 공개하기</span>
+                    </label>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">예약 공개 일시 (선택)</label>
+                        <input type="datetime-local" th:field="*{releaseAt}"
+                               class="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="text-[10px] text-slate-400 mt-0.5">지정한 일시 이후에 학생들에게 자료가 자동으로 열람/다운로드 가능해집니다.</p>
+                    </div>
+                </div>
+
+                <!-- 제출 버튼 -->
+                <div class="pt-3 flex justify-end gap-2">
+                    <button type="button" onclick="toggleUploadModal(false)"
+                            class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition">
+                        취소
+                    </button>
+                    <button type="submit"
+                            class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition">
+                        업로드 완료
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -171,14 +386,28 @@
             }
         }
 
-        // 알림 배너 4초 후 자동 페이드아웃
-        const banner = document.getElementById('alertSuccessBanner');
-        if (banner) {
-            setTimeout(() => {
-                banner.classList.add('opacity-0');
-                setTimeout(() => banner.remove(), 500);
-            }, 3500);
+        // 업로드 모달 열기/닫기
+        function toggleUploadModal(show) {
+            const modal = document.getElementById('uploadModal');
+            if (modal) {
+                if (show) {
+                    modal.classList.remove('hidden');
+                } else {
+                    modal.classList.add('hidden');
+                }
+            }
         }
+
+        // 알림 배너 자동 페이드아웃
+        ['alertSuccessBanner', 'materialSuccessBanner', 'materialErrorBanner'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                setTimeout(() => {
+                    el.classList.add('opacity-0');
+                    setTimeout(() => el.remove(), 500);
+                }, 3500);
+            }
+        });
     </script>
 </div>
 </body>

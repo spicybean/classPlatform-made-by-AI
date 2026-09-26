@@ -117,6 +117,24 @@
   * `classroom/join.html`: 초대 코드 입력 안내 문구를 실제 입력 동작과 일치하도록 `"영문 대문자 및 숫자로 자동 변환됩니다."`로 정합성 수정.
   * `classroom/detail.html`: 클립보드 복사 시 브라우저 권한/HTTP 환경 제한에 대비하여 `alert()` 대신 보이지 않는 textarea를 활용한 비침해적(Non-blocking) 폴백 복사 로직 추가.
 
+* **Phase 1 - 4단계: 주차별 강의 자료실 (Materials) 구현 완료**:
+  * `WeekSection` 엔티티 & 리포지토리: 주차별(1~16주차) 섹션 구분 및 `(classroom_id, week_number)` 고유키 제약조건 설정.
+  * `Material` 엔티티 & 리포지토리: 강의 자료 메타데이터(제목, 설명, 원본/저장 파일명, 크기, 공개 여부, 예약 공개 일시, 다운로드 횟수) 설계.
+  * `FileStorageService`: 로컬 스토리지 파일 저장/로드/삭제 구현 (최대 20MB 용량 제한, 화이트리스트 확장자 검증, Directory Traversal 경로 조작 공격 방어).
+  * `MaterialService`:
+    * 수업 개설/조회 시 1~16주차 자동 초기화 로직 연동.
+    * 교수용 자료 업로드 및 파일 스토리지 연동.
+    * 권한 기반 다운로드(담당 교수 또는 수강생만 다운로드 가능, 비공개/예약공개 필터링) 및 다운로드 카운트 증가.
+    * 파일 및 메타데이터 삭제 처리.
+  * `MaterialController`: 자료 업로드(`POST /classes/{id}/materials`), 한글 파일명 UTF-8 인코딩 지원 다운로드(`GET /classes/{id}/materials/{materialId}/download`), 자료 삭제 엔드포인트 구현.
+  * `ClassRoomController` & `detail.html`:
+    * 좌측 2열 주차별 강의 자료실 목록 아코디언 UI 배치 (확장자별 색상 뱃지, 파일 크기, 다운로드 수 표시).
+    * 교수 전용 새 자료 업로드 모달(주차 선택, 즉시 공개/예약 공개 옵션) 및 삭제 폼 연동.
+    * 우측 1열 수업 운영 정보 요약 및 차기 모듈(과제/출석) 사이드바 배치.
+  * `MaterialServiceTest`: 주차 자동 초기화, 자료 업로드, 수강생 다운로드 카운트 증가, 비수강생 다운로드 차단, 위험 확장자(.exe) 차단 등 5대 시나리오 단위/통합 테스트 100% 통과.
+
 #### 2. 다음 진행 계획 (Next Steps)
-* Phase 1 - 4단계: 주차별 강의 자료실 (WeekSection 및 Material 엔티티, 20MB 파일 업로드 서비스, 1~16주차 자료 등록 및 다운로드) 개발 착수
+* Claude 코드 리뷰 요청 및 피드백 점검
+* Phase 1 - 5단계: 과제 출제 및 제출 시스템 (Assignments & Submissions) 개발 착수
+
 

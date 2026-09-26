@@ -35,3 +35,5 @@ spring:
 # UniClass Custom Configuration
 uniclass:
   current-semester: 2026-1학기
+  upload:
+    location: ./uploads
