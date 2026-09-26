@@ -265,3 +265,105 @@ class UniclassApplicationTests {
 | **종합** | **4.4 / 5.0** | 뼈대 단계 완성도 우수. 다음 단계 인증 구현 준비 완료 |
 
 > **다음 코드 리뷰 예정**: Phase 1 - 2단계 `User` 엔티티, `UserRepository`, `UserService`, 회원가입 폼(`/register`) 구현 코드 리뷰
+
+---
+
+## 📅 2026-09-26 (토) - 2차 리뷰: 1차 리뷰 반영 후 변경 코드 재검토
+
+> **리뷰 대상**: 1차 리뷰 지적 사항 반영 후 변경된 3개 파일  
+> `application.yml` / `HomeController.java` / `layout/default.html`
+
+---
+
+### 📁 1. `application.yml` — 커스텀 프로퍼티 추가 반영
+
+```yaml
+# UniClass Custom Configuration
+uniclass:
+  current-semester: 2026-1학기
+```
+
+#### ✅ 개선 확인 (1차 지적 → 반영 완료)
+* 학기명이 자바 코드에서 완전히 제거되고 `application.yml`의 `uniclass.current-semester`로 분리됨.
+* 이제 학기가 바뀔 때 자바 코드를 건드리지 않고 yml 파일 한 줄만 수정하면 전체 반영 가능.
+
+#### ⚠️ 추가 발견 사항
+* 현재 `uniclass.current-semester`는 **단순 문자열**이라 학기 형식(`2026-2학기`, `2027-1학기`)에 대한 유효성 검증이 없음. 장기적으로는 학기 정보를 DB 테이블로 관리하거나 정규식 검증을 추가하는 것이 더 견고하지만, 현재 단계에서는 이 방식으로 충분함.
+
+---
+
+### 📁 2. `HomeController.java` — `@Value` 주입으로 하드코딩 제거
+
+```java
+@Controller
+public class HomeController {
+
+    @Value("${uniclass.current-semester:2026-1학기}")
+    private String currentSemester;
+
+    @GetMapping("/")
+    public String index(Model model) {
+        model.addAttribute("appName", "UniClass");
+        model.addAttribute("currentSemester", currentSemester);
+        return "index";
+    }
+}
+```
+
+#### ✅ 개선 확인 (1차 지적 → 반영 완료)
+* `"2026-1학기"` 하드코딩이 `@Value` 주입 방식으로 완전히 교체됨.
+* `@Value("${uniclass.current-semester:2026-1학기}")` 형태의 **콜론(`:`) 뒤 기본값 설정**은 yml에 해당 키가 없을 경우 안전하게 fallback하는 좋은 방어적 코딩.
+
+#### ⚠️ 추가 발견 사항 — 미세 개선 권장
+* **필드 주입(`@Value` on field) 방식의 한계**: Spring에서는 필드 직접 주입보다 **생성자 주입**을 권장함. 현재는 간단한 문자열이라 큰 문제는 없지만, 향후 Controller에 의존성이 많아질 경우를 위해 아래 패턴으로 리팩토링하는 것이 테스트 친화적이고 더 나은 설계임:
+  ```java
+  // 권장 패턴: 생성자 주입
+  @Controller
+  public class HomeController {
+
+      private final String currentSemester;
+
+      public HomeController(@Value("${uniclass.current-semester:2026-1학기}") String currentSemester) {
+          this.currentSemester = currentSemester;
+      }
+      ...
+  }
+  ```
+* 이유: `private final`로 선언하면 불변성이 보장되고, 테스트 코드에서 컨트롤러를 직접 생성해 주입값을 바꿔가며 단위 테스트하기가 훨씬 쉬워짐.
+
+---
+
+### 📁 3. `layout/default.html` — 학기 동적 바인딩 및 링크 교체
+
+```html
+<!-- 학기 뱃지: 동적 바인딩 적용 -->
+<span th:text="${currentSemester ?: '2026-1학기'}">
+    2026-1학기
+</span>
+
+<!-- 인증 버튼: button → a 태그로 교체 -->
+<a href="/login" class="...">로그인</a>
+<a href="/register" class="...">회원가입</a>
+```
+
+#### ✅ 개선 확인 (1차 지적 → 반영 완료)
+* 학기 뱃지가 `th:text`로 컨트롤러 모델 값과 바인딩되어 이제 동적으로 렌더링됨.
+* 의미 없는 `<button>` → URL을 가진 `<a>` 태그로 교체되어 시맨틱 HTML 원칙을 준수함. 브라우저의 링크 기본 동작(새 탭 열기, URL 미리보기 등)도 이제 정상 작동.
+
+#### ⚠️ 추가 발견 사항
+* `th:text="${currentSemester ?: '2026-1학기'}"` 에서 Thymeleaf의 Elvis 연산자(`?:`)를 사용한 것은 올바른 방어 코드. 단, 이미 `HomeController`에서도 `@Value`에 fallback이 설정되어 있어 사실상 null이 될 가능성은 거의 없음 — 이중 방어라 오히려 안전.
+* `<a href="/login">`과 `<a href="/register">`는 현재 아직 해당 URL에 컨트롤러가 없어 **404 에러**가 발생함. 이 부분은 다음 단계(회원가입/로그인 구현) 완료 시 해소될 예정이며, 지금 단계에서는 의도된 상태.
+* Thymeleaf 방식으로 개선하면 `<a th:href="@{/login}">` 패턴이 더 권장됨 — 컨텍스트 경로(Context Path)가 변경되어도 링크가 자동으로 맞춰지기 때문. **다음 수정 권장 사항으로 등록.**
+
+---
+
+### 📊 2차 리뷰 종합
+
+| 항목 | 1차 리뷰 | 2차 리뷰 (반영 후) |
+| :--- | :---: | :---: |
+| **학기명 하드코딩 제거** | ⚠️ 지적 | ✅ 반영 완료 |
+| **인증 버튼 링크화** | ⚠️ 지적 | ✅ 반영 완료 |
+| **HomeController 생성자 주입** | — | ⚠️ 신규 권장 사항 |
+| **`th:href="@{/login}"` 패턴 적용** | — | ⚠️ 신규 권장 사항 |
+
+**총평**: 1차 리뷰에서 지적한 2가지 사항이 모두 명확하게 반영되었음. 추가로 발견된 2가지 개선 권장 사항(생성자 주입, `th:href` 패턴)은 다음 단계 회원가입/로그인 개발 시 함께 적용하면 깔끔하게 처리될 예정.
