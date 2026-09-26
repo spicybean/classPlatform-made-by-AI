@@ -49,7 +49,7 @@ public class Material {
     private String contentType;
 
     @Column(name = "is_published", nullable = false)
-    private boolean isPublished = true;
+    private boolean published = true;
 
     @Column(name = "release_at")
     private LocalDateTime releaseAt;
@@ -68,7 +68,7 @@ public class Material {
     @Builder
     public Material(WeekSection weekSection, ClassRoom classroom, String title, String description,
                     String originalFilename, String storedFilename, String filePath,
-                    long fileSize, String contentType, boolean isPublished, LocalDateTime releaseAt) {
+                    long fileSize, String contentType, boolean published, LocalDateTime releaseAt) {
         this.weekSection = weekSection;
         this.classroom = classroom;
         this.title = title;
@@ -78,7 +78,7 @@ public class Material {
         this.filePath = filePath;
         this.fileSize = fileSize;
         this.contentType = contentType;
-        this.isPublished = isPublished;
+        this.published = published;
         this.releaseAt = releaseAt;
         this.downloadCount = 0;
     }
@@ -91,7 +91,7 @@ public class Material {
      * 학생 기준 지금 시점에 열람/다운로드가 가능한지 확인
      */
     public boolean isAvailableNow() {
-        if (!isPublished) {
+        if (!published) {
             return false;
         }
         if (releaseAt != null && releaseAt.isAfter(LocalDateTime.now())) {

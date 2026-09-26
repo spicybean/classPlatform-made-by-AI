@@ -908,3 +908,108 @@ navigator.clipboard.writeText(code).then(() => {
 
 > **수정 우선순위**: `join.html` 안내 문구(`대소문자 구분 없이 입력하실 수 있습니다` ➡️ `자동으로 대문자 변환됩니다`) 수정이 가장 빠르고 효과적인 개선 사항임.
 
+---
+
+## 📅 2026-09-27 (일) - 6차 주차별 강의 자료실(Materials) 구현 코드 리뷰
+
+---
+
+### 📁 1. `Material.java` — Lombok `@Getter`와 `boolean isPublished` 필드명 충돌
+
+```java
+// 개선 전
+@Column(name = "is_published", nullable = false)
+private boolean isPublished = true;
+// Lombok 생성 getter: isIsPublished() -> Thymeleaf 및 직렬화 불일치 위험
+```
+
+#### ⚠️ 지적 사항
+* `boolean` 필드에 `is` 접두사를 붙이면 Lombok이 `isIsPublished()`라는 기형적인 getter를 생성하여 Thymeleaf(`${m.published}` 또는 `${m.isPublished}`) 참조 및 DTO 변환 시 예상치 못한 오류를 유발할 수 있음.
+* **수정**: 필드명을 `published`로 변경하여 Lombok이 정상적인 `isPublished()` getter를 생성하도록 개선.
+
+---
+
+### 📁 2. `MaterialService.java` — DB 저장 실패 시 파일 고아화 방어 & AOP Self-Invocation 정리
+
+```java
+// 파일 저장 후 DB 저장 시 예외 발생 시 고아 파일 방어 로직 필요
+StoredFile storedFile = fileStorageService.store(dto.getFile(), "materials/class_" + classroomId);
+try {
+    return materialRepository.save(material).getId();
+} catch (Exception e) {
+    fileStorageService.delete(storedFile.relativePath());
+    throw e;
+}
+```
+
+#### ⚠️ 지적 사항
+1. **고아 파일 방어**: DB 예외 발생 시 트랜잭션은 롤백되지만 이미 파일 시스템에 기록된 물리 파일은 그대로 남아 디스크 낭비가 발생할 수 있음. catch 블록에서 파일 삭제 처리 보완.
+2. **AOP Self-Call**: `getWeeksWithMaterials` 내부에서 `this.initializeDefaultWeeks()`를 직접 호출하면 Spring AOP 트랜잭션 프록시가 우회됨. 내부 전용 헬퍼 메서드로 분리하여 명확한 트랜잭션 흐름 구축.
+
+---
+
+### 📁 3. `MaterialController.java` & `MaterialService.java` — 다운로드 및 삭제 시 `classroomId` 검증 누락
+
+```java
+// URL의 classroomId와 대상 material의 classroomId 일치 여부 검증 추가
+if (!material.getClassroom().getId().equals(classroomId)) {
+    throw new IllegalArgumentException("해당 수업에 속한 강의 자료가 아닙니다.");
+}
+```
+
+#### ⚠️ 지적 사항
+* 컨트롤러 엔드포인트 URL에 `/classes/{classroomId}/materials/{materialId}/download` 형태로 `classroomId`가 명시되어 있으나 서비스 레이어에 전달되지 않아, 다른 수업의 URL로도 ID만 알면 접근되는 잠재적 보안 취약점 존재.
+* **수정**: 서비스 메서드 인자에 `classroomId`를 포함하고 일치 여부 검증 로직 추가.
+
+---
+
+### 📁 4. `FileStorageService.java` — 운영체제별 상대 경로 구분자 일원화
+
+```java
+// 개선 전: Windows 환경 등에서 역슬래시(\) 혼용 위험
+String relativePath = subDirectory + "/" + storedFilename;
+// 개선 후: 통일된 UNIX 스타일 구분자 및 Path 객체 정규화
+String relativePath = Paths.get(subDirectory, storedFilename).toString().replace('\\', '/');
+```
+
+#### ⚠️ 지적 사항
+* OS에 따라 경로 구분자가 역슬래시(`\`)와 슬래시(`/`)로 혼용되어 리소스 로드 시 불일치가 발생할 수 있으므로 표준 슬래시(`/`)로 정규화.
+
+---
+
+### 📁 5. `ClassRoomController.java` — 불필요한 역할 체크 데드코드 제거
+
+```java
+@PreAuthorize("hasRole('ROLE_INSTRUCTOR')")
+public String newClassRoomPage(...) {
+    // @PreAuthorize에 의해 이미 차단되므로 이 if 분기는 불필요한 데드코드
+    // if (userDetails.getRole() != Role.ROLE_INSTRUCTOR) { ... } -> 제거
+```
+
+---
+
+### 📁 6. `MaterialServiceTest.java` — 영속성 컨텍스트 플러시/클리어 후 다운로드 카운트 엄밀 검증
+
+```java
+entityManager.flush();
+entityManager.clear();
+Material updated = materialRepository.findById(materialId).orElseThrow();
+assertThat(updated.getDownloadCount()).isEqualTo(1);
+```
+
+#### ⚠️ 지적 사항
+* 1차 캐시로 인한 단순 메모리 객체 참조를 방지하고 실제 DB UPDATE 쿼리 반영 여부를 확실히 검증하도록 `flush()` / `clear()` 추가.
+
+---
+
+### 📊 6차 리뷰 종합 평가
+
+| 항목 | 평가 | 조치 방안 |
+| :--- | :---: | :--- |
+| **Lombok Getter 충돌** | ⚠️ 주의 | `published`로 필드명 변경 및 getter 정상화 |
+| **보안 (URL 변조 검증)** | ⚠️ 주의 | 다운로드/삭제 시 `classroomId` 정합성 검증 추가 |
+| **파일 트랜잭션 안전성** | ⚠️ 주의 | DB 롤백 시 저장된 물리 파일 삭제 폴백 추가 |
+| **코드 정결성** | ✅ 양호 | 데드코드 제거, 상대 경로 구분자 통일 |
+| **테스트 정밀도** | ✅ 양호 | 영속성 컨텍스트 캐시 클리어 후 재조회 검증 |
+
+

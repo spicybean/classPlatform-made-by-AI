@@ -64,7 +64,7 @@ public class MaterialController {
                                                      @PathVariable("materialId") Long materialId,
                                                      @AuthenticationPrincipal CustomUserDetails userDetails) {
         boolean isInstructor = userDetails.getRole() == Role.ROLE_INSTRUCTOR;
-        DownloadResult downloadResult = materialService.downloadMaterial(materialId, userDetails.getId(), isInstructor);
+        DownloadResult downloadResult = materialService.downloadMaterial(classroomId, materialId, userDetails.getId(), isInstructor);
 
         String encodedFilename = UriUtils.encode(downloadResult.originalFilename(), StandardCharsets.UTF_8);
         String contentDisposition = "attachment; filename=\"" + encodedFilename + "\"; filename*=UTF-8''" + encodedFilename;
@@ -92,7 +92,7 @@ public class MaterialController {
                                  @AuthenticationPrincipal CustomUserDetails userDetails,
                                  RedirectAttributes redirectAttributes) {
         try {
-            materialService.deleteMaterial(materialId, userDetails.getId());
+            materialService.deleteMaterial(classroomId, materialId, userDetails.getId());
             redirectAttributes.addFlashAttribute("materialSuccessMessage", "강의 자료가 삭제되었습니다.");
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("materialErrorMessage", e.getMessage());

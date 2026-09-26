@@ -35,9 +35,6 @@ public class ClassRoomController {
     @GetMapping("/new")
     @PreAuthorize("hasRole('ROLE_INSTRUCTOR')")
     public String newClassRoomPage(@AuthenticationPrincipal CustomUserDetails userDetails, Model model) {
-        if (userDetails.getRole() != Role.ROLE_INSTRUCTOR) {
-            return "redirect:/?error=forbidden";
-        }
         CreateClassRoomDto form = new CreateClassRoomDto();
         form.setSemester("2026-1학기");
         model.addAttribute("form", form);

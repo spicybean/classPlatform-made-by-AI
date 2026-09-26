@@ -84,7 +84,7 @@ public class FileStorageService {
                 Files.copy(inputStream, targetPath, StandardCopyOption.REPLACE_EXISTING);
             }
 
-            String relativePath = subDirectory + "/" + storedFilename;
+            String relativePath = Paths.get(subDirectory, storedFilename).toString().replace('\\', '/');
             return new StoredFile(originalFilename, storedFilename, relativePath, file.getSize(), file.getContentType());
         } catch (IOException e) {
             throw new IllegalStateException("파일 저장 중 입출력 오류가 발생했습니다: " + originalFilename, e);

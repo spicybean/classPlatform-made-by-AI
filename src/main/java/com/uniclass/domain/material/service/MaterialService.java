@@ -48,10 +48,14 @@ public class MaterialService {
     }
 
     /**
-     * 1~16주차 기본 섹션 자동 초기화 (수업 개설 시 또는 첫 조회 시)
+     * 1~16주차 기본 섹션 자동 초기화 (외부 호출용)
      */
     @Transactional
     public void initializeDefaultWeeks(ClassRoom classRoom) {
+        createDefaultWeeks(classRoom);
+    }
+
+    private void createDefaultWeeks(ClassRoom classRoom) {
         if (weekSectionRepository.existsByClassroomId(classRoom.getId())) {
             return;
         }
@@ -78,7 +82,7 @@ public class MaterialService {
 
         // 주차 섹션이 없으면 기본 1~16주차 생성
         if (!weekSectionRepository.existsByClassroomId(classroomId)) {
-            initializeDefaultWeeks(classRoom);
+            createDefaultWeeks(classRoom);
         }
 
         List<WeekSection> sections = weekSectionRepository.findWithMaterialsByClassroomId(classroomId);
@@ -131,6 +135,7 @@ public class MaterialService {
             try {
                 releaseAt = LocalDateTime.parse(dto.getReleaseAt().trim());
             } catch (DateTimeParseException e) {
+                fileStorageService.delete(storedFile.relativePath());
                 throw new IllegalArgumentException("예약 공개 일시 형식이 올바르지 않습니다 (예: 2026-03-15T09:00).");
             }
         }
@@ -145,22 +150,33 @@ public class MaterialService {
                 .filePath(storedFile.relativePath())
                 .fileSize(storedFile.fileSize())
                 .contentType(storedFile.contentType())
-                .isPublished(dto.isPublished())
+                .published(dto.isPublished())
                 .releaseAt(releaseAt)
                 .build();
 
-        return materialRepository.save(material).getId();
+        try {
+            return materialRepository.save(material).getId();
+        } catch (Exception e) {
+            // DB 저장 실패 시 디스크에 저장된 물리 파일 삭제 (고아 파일 방어)
+            fileStorageService.delete(storedFile.relativePath());
+            throw e;
+        }
     }
 
     /**
-     * 강의 자료 다운로드 처리 (권한 검증 및 다운로드 카운트 증가)
+     * 강의 자료 다운로드 처리 (수업 ID 및 권한 검증, 다운로드 카운트 증가)
      */
     @Transactional
-    public DownloadResult downloadMaterial(Long materialId, Long currentUserId, boolean isInstructor) {
+    public DownloadResult downloadMaterial(Long classroomId, Long materialId, Long currentUserId, boolean isInstructor) {
         Material material = materialRepository.findByIdWithClassroomAndWeek(materialId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 강의 자료를 찾을 수 없습니다: " + materialId));
 
         ClassRoom classRoom = material.getClassroom();
+
+        // 요청된 URL의 수업과 자료가 속한 수업 일치 여부 검증
+        if (!classRoom.getId().equals(classroomId)) {
+            throw new IllegalArgumentException("해당 수업에 속한 강의 자료가 아닙니다.");
+        }
 
         // 권한 확인: 교수 본인이거나 해당 수업에 수강 중인 학생이어야 함
         if (classRoom.getInstructor().getId().equals(currentUserId)) {
@@ -187,9 +203,13 @@ public class MaterialService {
      * 강의 자료 삭제 (교수 전용)
      */
     @Transactional
-    public void deleteMaterial(Long materialId, Long instructorId) {
+    public void deleteMaterial(Long classroomId, Long materialId, Long instructorId) {
         Material material = materialRepository.findByIdWithClassroomAndWeek(materialId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 강의 자료를 찾을 수 없습니다: " + materialId));
+
+        if (!material.getClassroom().getId().equals(classroomId)) {
+            throw new IllegalArgumentException("해당 수업에 속한 강의 자료가 아닙니다.");
+        }
 
         if (!material.getClassroom().getInstructor().getId().equals(instructorId)) {
             throw new IllegalArgumentException("수업 담당 교수만 자료를 삭제할 수 있습니다.");

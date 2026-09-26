@@ -47,6 +47,9 @@ class MaterialServiceTest {
     @Autowired
     private MaterialRepository materialRepository;
 
+    @Autowired
+    private jakarta.persistence.EntityManager entityManager;
+
     private User instructor;
     private User student;
     private User outsider;
@@ -152,13 +155,41 @@ class MaterialServiceTest {
         Long materialId = materialService.uploadMaterial(classRoom.getId(), instructor.getId(), dto);
 
         // 학생이 다운로드
-        DownloadResult result = materialService.downloadMaterial(materialId, student.getId(), false);
+        DownloadResult result = materialService.downloadMaterial(classRoom.getId(), materialId, student.getId(), false);
 
         assertThat(result.originalFilename()).isEqualTo("sample.pdf");
         assertThat(result.resource().exists()).isTrue();
 
+        // 1차 캐시를 초기화하여 실제 DB UPDATE 반영 여부를 엄밀 검증
+        entityManager.flush();
+        entityManager.clear();
+
         Material updated = materialRepository.findById(materialId).orElseThrow();
         assertThat(updated.getDownloadCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("다른 수업 ID로 다운로드를 시도하면 거부된다 (URL 변조 방어)")
+    void downloadMaterial_wrongClassroomId_denied() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "sample.pdf",
+                "application/pdf",
+                "Sample PDF Content".getBytes(StandardCharsets.UTF_8)
+        );
+
+        CreateMaterialDto dto = new CreateMaterialDto();
+        dto.setWeekNumber(1);
+        dto.setTitle("자료 1");
+        dto.setFile(file);
+        dto.setPublished(true);
+
+        Long materialId = materialService.uploadMaterial(classRoom.getId(), instructor.getId(), dto);
+
+        Long wrongClassroomId = 9999L;
+        assertThatThrownBy(() -> materialService.downloadMaterial(wrongClassroomId, materialId, student.getId(), false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("해당 수업에 속한 강의 자료가 아닙니다");
     }
 
     @Test
@@ -179,7 +210,7 @@ class MaterialServiceTest {
 
         Long materialId = materialService.uploadMaterial(classRoom.getId(), instructor.getId(), dto);
 
-        assertThatThrownBy(() -> materialService.downloadMaterial(materialId, outsider.getId(), false))
+        assertThatThrownBy(() -> materialService.downloadMaterial(classRoom.getId(), materialId, outsider.getId(), false))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("수강생만");
     }

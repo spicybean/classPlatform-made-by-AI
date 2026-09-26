@@ -133,8 +133,18 @@
     * 우측 1열 수업 운영 정보 요약 및 차기 모듈(과제/출석) 사이드바 배치.
   * `MaterialServiceTest`: 주차 자동 초기화, 자료 업로드, 수강생 다운로드 카운트 증가, 비수강생 다운로드 차단, 위험 확장자(.exe) 차단 등 5대 시나리오 단위/통합 테스트 100% 통과.
 
+* **6차 코드 리뷰 피드백 반영 완료**:
+  * `Material.java`: `isPublished` 필드명을 `published`로 변경하여 Lombok이 정상적인 `isPublished()` getter를 생성하도록 개선.
+  * `MaterialService.java`:
+    * DB 예외 시 디스크 물리 파일 자동 정리(고아 파일 방어) 로직 추가.
+    * `initializeDefaultWeeks` self-call 우회를 위한 내부 헬퍼 분리.
+    * 다운로드 및 삭제 시 `classroomId` 정합성 검증 추가(URL 변조 공격 방어).
+  * `MaterialController.java`: `classroomId` 서비스 레이어 인자 전달.
+  * `FileStorageService.java`: OS별 상대 경로 구분자(`/`) 정규화.
+  * `ClassRoomController.java`: 중복 역할 검증 데드코드 제거.
+  * `MaterialServiceTest.java`: `EntityManager` 영속성 캐시 클리어 후 다운로드 카운트 DB 반영 엄밀 검증, URL 변조 차단 테스트 추가(전체 통과).
+
 #### 2. 다음 진행 계획 (Next Steps)
-* Claude 코드 리뷰 요청 및 피드백 점검
 * Phase 1 - 5단계: 과제 출제 및 제출 시스템 (Assignments & Submissions) 개발 착수
 
 
