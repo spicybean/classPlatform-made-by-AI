@@ -55,7 +55,13 @@ public class AuthController {
         if (isAuthenticated()) {
             return "redirect:/";
         }
+
         if (bindingResult.hasErrors()) {
+            return "auth/register";
+        }
+
+        if (form.getPassword() != null && !form.getPassword().equals(form.getPasswordConfirm())) {
+            bindingResult.rejectValue("passwordConfirm", "passwordMismatch", "비밀번호와 비밀번호 확인이 일치하지 않습니다.");
             return "auth/register";
         }
 
