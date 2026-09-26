@@ -113,7 +113,10 @@
   * `test_full_flow.py`: 교수 가입 ➡️ 로그인 ➡️ 수업 개설 ➡️ 코드 추출 ➡️ 학생 가입 ➡️ 로그인 ➡️ 수강 신청 ➡️ 상세 페이지 열람 (ALL PASSED)
   * `test_edge_cases.py`: 미인증 권한 체크(302 리다이렉트), 중복 가입 방어, 잘못된 초대 코드 방어 (ALL PASSED)
 
+* **5차 코드 리뷰 피드백 반영 완료**:
+  * `classroom/join.html`: 초대 코드 입력 안내 문구를 실제 입력 동작과 일치하도록 `"영문 대문자 및 숫자로 자동 변환됩니다."`로 정합성 수정.
+  * `classroom/detail.html`: 클립보드 복사 시 브라우저 권한/HTTP 환경 제한에 대비하여 `alert()` 대신 보이지 않는 textarea를 활용한 비침해적(Non-blocking) 폴백 복사 로직 추가.
+
 #### 2. 다음 진행 계획 (Next Steps)
-* Claude 코드 리뷰 요청 및 피드백 점검
 * Phase 1 - 4단계: 주차별 강의 자료실 (WeekSection 및 Material 엔티티, 20MB 파일 업로드 서비스, 1~16주차 자료 등록 및 다운로드) 개발 착수
 
