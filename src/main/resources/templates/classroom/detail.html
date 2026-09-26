@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/default :: layout(~{::content})}">
+<body>
+<div th:fragment="content" class="space-y-6">
+
+    <!-- 성공 알림 배너 (개설 또는 참가 완료 시) -->
+    <div th:if="${alertSuccess}" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center gap-3 shadow-sm">
+        <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <p class="font-bold text-slate-900" th:text="${alertSuccess}">알림 메시지</p>
+    </div>
+
+    <!-- 수업 헤더 배너 -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+                <div class="flex flex-wrap items-center gap-2 mb-3">
+                    <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200"
+                          th:text="${classroom.courseCode} + ' · ' + ${classroom.division}">
+                        CS101 · 01분반
+                    </span>
+                    <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-700"
+                          th:text="${classroom.semester}">
+                        2026-1학기
+                    </span>
+                    <span th:if="${classroom.archived}" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        📁 보관(종료)된 수업
+                    </span>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight" th:text="${classroom.name}">
+                    자료구조 및 알고리즘
+                </h1>
+                <p class="text-sm text-slate-500 mt-2 flex items-center gap-2">
+                    <span>담당: <strong class="text-slate-700" th:text="${classroom.instructor.name}">홍길동</strong> 교수님</span>
+                    <span class="text-slate-300">·</span>
+                    <span th:text="${classroom.instructor.email}">email@univ.ac.kr</span>
+                </p>
+            </div>
+
+            <!-- 우측 초대 코드 영역 -->
+            <div class="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div>
+                    <span class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">학생 참여 초대 코드</span>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="font-mono text-xl font-extrabold text-blue-600 tracking-widest bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm"
+                              th:text="${classroom.inviteCode}">
+                            CS101A
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 수업 소개 설명글 (있을 경우) -->
+        <div th:if="${classroom.description}" class="mt-6 pt-6 border-t border-slate-100 text-sm text-slate-600 leading-relaxed whitespace-pre-line"
+             th:text="${classroom.description}">
+            수업 소개 내용
+        </div>
+    </div>
+
+    <!-- 주차별 자료 & 과제 탭 섹션 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- 1. 주차별 강의 자료실 (Phase 1 - 4단계 타겟) -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-slate-900 text-lg flex items-center gap-2">
+                    📚 <span>주차별 강의 자료실</span>
+                </h2>
+                <span class="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-semibold border border-blue-100">4단계 예정</span>
+            </div>
+            <p class="text-xs text-slate-500 leading-relaxed">
+                1~16주차 강의 슬라이드(PPT, PDF, ZIP)를 주차별로 등록하고 다운로드할 수 있는 자료실입니다.
+            </p>
+            <div class="p-4 rounded-xl border-2 border-dashed border-slate-200 text-center text-xs text-slate-400">
+                수업 공간 구축 완료! 다음 단계에서 자료 업로드 기능이 활성화됩니다.
+            </div>
+        </div>
+
+        <!-- 2. 과제 출제 및 제출 (Phase 1 - 5단계 타겟) -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-slate-900 text-lg flex items-center gap-2">
+                    ✍️ <span>과제 및 채점</span>
+                </h2>
+                <span class="text-xs px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-semibold border border-emerald-100">5단계 예정</span>
+            </div>
+            <p class="text-xs text-slate-500 leading-relaxed">
+                마감일, 배점, 지각 허용 기준에 맞춰 과제를 출제하고 학생 제출물을 접수합니다.
+            </p>
+            <div class="p-4 rounded-xl border-2 border-dashed border-slate-200 text-center text-xs text-slate-400">
+                과제 관리 모듈 연결 대기 중입니다.
+            </div>
+        </div>
+
+        <!-- 3. 실시간 4자리 출석 (Phase 2 - 7단계 타겟) -->
+        <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 class="font-bold text-slate-900 text-lg flex items-center gap-2">
+                    ⚡ <span>4자리 간편 출석</span>
+                </h2>
+                <span class="text-xs px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-semibold border border-indigo-100">Phase 2</span>
+            </div>
+            <p class="text-xs text-slate-500 leading-relaxed">
+                강의실 스크린에 4자리 번호를 띄우면 모바일로 1초 만에 출석이 완료됩니다.
+            </p>
+            <div class="p-4 rounded-xl border-2 border-dashed border-slate-200 text-center text-xs text-slate-400">
+                출석 세션 기능 대기 중입니다.
+            </div>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

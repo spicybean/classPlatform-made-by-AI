@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/default :: layout(~{::content})}">
+<body>
+<div th:fragment="content" class="max-w-2xl mx-auto py-6">
+    <!-- 헤더 -->
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">새 수업 개설</h1>
+            <p class="text-sm text-slate-500 mt-1">이번 학기에 진행할 새로운 강의 공간을 만듭니다.</p>
+        </div>
+        <a th:href="@{/}" class="text-sm font-semibold text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition">
+            취소하고 돌아가기
+        </a>
+    </div>
+
+    <!-- 카드 폼 -->
+    <div class="bg-white p-8 rounded-2xl border border-slate-200/80 shadow-sm">
+        <form th:action="@{/classes/new}" th:object="${form}" method="post" class="space-y-6">
+
+            <!-- 글로벌 에러 -->
+            <div th:if="${#fields.hasGlobalErrors()}" class="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span th:each="err : ${#fields.globalErrors()}" th:text="${err}"></span>
+            </div>
+
+            <!-- 과목명 -->
+            <div>
+                <label for="name" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    수업명 (과목명) <span class="text-rose-500">*</span>
+                </label>
+                <input type="text" id="name" th:field="*{name}" autofocus
+                       placeholder="예: 자료구조 및 알고리즘"
+                       class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm placeholder:text-slate-400">
+                <p th:if="${#fields.hasErrors('name')}" th:errors="*{name}" class="text-xs text-rose-600 mt-1.5 font-medium"></p>
+            </div>
+
+            <!-- 학수번호 / 학기 / 분반 3단 그리드 -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                    <label for="courseCode" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        과목코드 (학수번호) <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" id="courseCode" th:field="*{courseCode}"
+                           placeholder="예: CS101"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm placeholder:text-slate-400">
+                    <p th:if="${#fields.hasErrors('courseCode')}" th:errors="*{courseCode}" class="text-xs text-rose-600 mt-1.5 font-medium"></p>
+                </div>
+                <div>
+                    <label for="semester" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        개설 학기 <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" id="semester" th:field="*{semester}"
+                           placeholder="예: 2026-1학기"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm placeholder:text-slate-400">
+                    <p th:if="${#fields.hasErrors('semester')}" th:errors="*{semester}" class="text-xs text-rose-600 mt-1.5 font-medium"></p>
+                </div>
+                <div>
+                    <label for="division" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        분반 <span class="text-rose-500">*</span>
+                    </label>
+                    <input type="text" id="division" th:field="*{division}"
+                           placeholder="예: 01분반"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm placeholder:text-slate-400">
+                    <p th:if="${#fields.hasErrors('division')}" th:errors="*{division}" class="text-xs text-rose-600 mt-1.5 font-medium"></p>
+                </div>
+            </div>
+
+            <!-- 수업 소개 -->
+            <div>
+                <label for="description" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">수업 소개 및 안내</label>
+                <textarea id="description" th:field="*{description}" rows="4"
+                          placeholder="강의실 위치, 수업 개요, 주 교재 및 과제 공지사항 등을 자유롭게 작성하세요."
+                          class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm placeholder:text-slate-400"></textarea>
+                <p th:if="${#fields.hasErrors('description')}" th:errors="*{description}" class="text-xs text-rose-600 mt-1.5 font-medium"></p>
+            </div>
+
+            <!-- 안내 박스 -->
+            <div class="p-4 rounded-xl bg-blue-50 border border-blue-100 flex items-start gap-3">
+                <svg class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <div class="text-xs text-blue-800 leading-relaxed">
+                    <p class="font-bold">자동 6자리 초대 코드가 발급됩니다.</p>
+                    <p class="text-blue-600 mt-0.5">수업 개설이 완료되면 학생들에게 공유할 수 있는 안전한 고유 초대 코드가 자동 생성됩니다.</p>
+                </div>
+            </div>
+
+            <!-- 등록 버튼 -->
+            <div class="pt-2 flex justify-end gap-3">
+                <a th:href="@{/}" class="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition">
+                    취소
+                </a>
+                <button type="submit"
+                        class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 hover:shadow-lg transition">
+                    수업 개설 완료하기
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

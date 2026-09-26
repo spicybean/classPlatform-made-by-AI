@@ -1,24 +1,37 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/default :: layout(~{::content})}">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" th:replace="~{layout/default :: layout(~{::content})}">
 <body>
 <div th:fragment="content" class="space-y-8">
 
-    <!-- 로그아웃 알림 배너 -->
-    <div th:if="${logoutMessage}" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center gap-3 shadow-sm">
-        <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    <!-- 로그아웃 알림 배너 (X 닫기 버튼 포함) -->
+    <div th:if="${logoutMessage}" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center justify-between shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div>
+                <p class="font-bold text-slate-900" th:text="${logoutMessage}">성공적으로 로그아웃되었습니다.</p>
+                <p class="text-xs text-slate-500 mt-0.5">안전하게 세션이 종료되었습니다.</p>
+            </div>
         </div>
-        <div>
-            <p class="font-bold text-slate-900" th:text="${logoutMessage}">성공적으로 로그아웃되었습니다.</p>
-            <p class="text-xs text-slate-500 mt-0.5">안전하게 세션이 종료되었습니다.</p>
+        <button type="button" onclick="this.closest('div.bg-emerald-50').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-emerald-100/50 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+    </div>
+
+    <!-- 에러 메시지 알림 -->
+    <div th:if="${errorMessage}" class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-medium flex items-center gap-3 shadow-sm">
+        <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
+        <p class="font-bold" th:text="${errorMessage}">오류 메시지</p>
     </div>
 
     <!-- 히어로 배너 섹션 -->
     <section class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-8 sm:p-10 text-white shadow-lg relative overflow-hidden">
         <div class="relative z-10 max-w-2xl">
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/20 text-white backdrop-blur-sm mb-4">
-                🚀 스프링 부트 뼈대 세팅 완료
+                🚀 스프링 부트 수업 플랫폼 UniClass
             </span>
             <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight leading-tight">
                 스마트한 강의 준비와 편리한 과제 관리, <span class="text-blue-200">UniClass</span>
@@ -27,14 +40,16 @@
                 강의 자료 파편화는 이제 그만! 1~16주차 자료실, 원클릭 수업 복제, 스피드 과제 채점 및 4자리 간편 출석까지 하나의 플랫폼에서 해결하세요.
             </p>
             <div class="mt-6 flex flex-wrap gap-3">
-                <button type="button" class="bg-white text-blue-600 hover:bg-blue-50 font-bold px-5 py-2.5 rounded-xl shadow transition text-sm flex items-center gap-2">
+                <a th:href="@{/classes/new}"
+                   class="bg-white text-blue-600 hover:bg-blue-50 font-bold px-5 py-2.5 rounded-xl shadow transition text-sm flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     새 수업 개설하기 (교수용)
-                </button>
-                <button type="button" class="bg-blue-500/40 hover:bg-blue-500/60 text-white font-semibold px-5 py-2.5 rounded-xl border border-white/20 backdrop-blur-sm transition text-sm flex items-center gap-2">
+                </a>
+                <a th:href="@{/classes/join}"
+                   class="bg-blue-500/40 hover:bg-blue-500/60 text-white font-semibold px-5 py-2.5 rounded-xl border border-white/20 backdrop-blur-sm transition text-sm flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
                     초대 코드로 참가하기 (학생용)
-                </button>
+                </a>
             </div>
         </div>
         <div class="absolute -right-10 -bottom-10 w-80 h-80 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
@@ -76,60 +91,100 @@
         </div>
     </section>
 
-    <!-- 내 수업 목록 미리보기 (Preview) -->
+    <!-- 내 수업 목록 섹션 -->
     <section class="space-y-4">
         <div class="flex justify-between items-center">
             <div>
                 <h2 class="text-xl font-bold text-slate-900">내 수업 목록</h2>
                 <p class="text-xs text-slate-500 mt-0.5" th:text="'현재 학기: ' + ${currentSemester}">현재 학기: 2026-1학기</p>
             </div>
-            <span class="text-xs text-slate-400 font-medium">Phase 1 DB 연동 준비 중</span>
+            <span sec:authorize="isAuthenticated()" class="text-xs text-blue-600 font-semibold bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+                실시간 연동됨
+            </span>
+            <span sec:authorize="isAnonymous()" class="text-xs text-slate-400 font-medium">
+                로그인 후 내 수업 확인 가능
+            </span>
         </div>
 
-        <!-- 샘플 수업 카드 -->
+        <!-- 동적 수업 카드 그리드 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:border-blue-400 transition group">
-                <div class="h-28 bg-gradient-to-r from-blue-500 to-cyan-500 p-5 flex flex-col justify-between text-white">
-                    <div class="flex justify-between items-start">
-                        <span class="text-xs font-semibold px-2 py-0.5 bg-white/20 rounded backdrop-blur-sm">01분반</span>
-                        <span class="text-xs opacity-80">초대코드: <strong class="tracking-wider">CS101A</strong></span>
-                    </div>
-                    <h3 class="font-bold text-lg leading-tight group-hover:underline">자료구조 및 알고리즘</h3>
-                </div>
-                <div class="p-5 space-y-3">
-                    <p class="text-xs text-slate-500">담당: 홍길동 교수님 (공학관 402호)</p>
-                    <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
-                        <span class="text-slate-600 font-medium">등록된 과제: <strong class="text-blue-600">2건</strong></span>
-                        <span class="text-slate-400">수강생 42명</span>
-                    </div>
-                </div>
-            </div>
 
-            <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:border-indigo-400 transition group">
-                <div class="h-28 bg-gradient-to-r from-indigo-500 to-purple-500 p-5 flex flex-col justify-between text-white">
-                    <div class="flex justify-between items-start">
-                        <span class="text-xs font-semibold px-2 py-0.5 bg-white/20 rounded backdrop-blur-sm">02분반</span>
-                        <span class="text-xs opacity-80">초대코드: <strong class="tracking-wider">AI204B</strong></span>
+            <!-- 1. 로그인 사용자의 실제 수업 카드 (DB 조회 결과) -->
+            <th:block th:if="${classes != null and not #lists.isEmpty(classes)}">
+                <a th:each="c : ${classes}" th:href="@{'/classes/' + ${c.id}}"
+                   class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm hover:border-blue-400 hover:shadow-md transition group flex flex-col justify-between">
+                    <div>
+                        <div class="h-28 bg-gradient-to-r from-blue-600 to-indigo-600 p-5 flex flex-col justify-between text-white">
+                            <div class="flex justify-between items-start">
+                                <span class="text-xs font-semibold px-2 py-0.5 bg-white/20 rounded backdrop-blur-sm"
+                                      th:text="${c.division}">01분반</span>
+                                <span class="text-xs opacity-90">초대코드: <strong class="tracking-wider font-mono" th:text="${c.inviteCode}">CS101A</strong></span>
+                            </div>
+                            <h3 class="font-bold text-lg leading-tight group-hover:underline" th:text="${c.name}">자료구조</h3>
+                        </div>
+                        <div class="p-5 space-y-2">
+                            <p class="text-xs text-slate-500">담당: <strong class="text-slate-700" th:text="${c.instructorName}">홍길동</strong> 교수님</p>
+                            <p class="text-xs text-slate-400 font-mono" th:text="${c.courseCode}">CS101</p>
+                        </div>
                     </div>
-                    <h3 class="font-bold text-lg leading-tight group-hover:underline">인공지능 개론</h3>
-                </div>
-                <div class="p-5 space-y-3">
-                    <p class="text-xs text-slate-500">담당: 이순신 교수님 (IT융합관 201호)</p>
-                    <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
-                        <span class="text-slate-600 font-medium">등록된 과제: <strong class="text-amber-600">1건 마감임박</strong></span>
-                        <span class="text-slate-400">수강생 58명</span>
+                    <div class="px-5 py-3 border-t border-slate-100 flex justify-between items-center text-xs bg-slate-50/50">
+                        <span class="text-slate-600 font-medium">수강생: <strong class="text-blue-600" th:text="${c.studentCount} + '명'">0명</strong></span>
+                        <span class="text-blue-600 font-semibold group-hover:translate-x-0.5 transition flex items-center gap-1">입장하기 →</span>
                     </div>
-                </div>
-            </div>
+                </a>
+            </th:block>
 
-            <!-- 새 수업 만들기 점선 카드 -->
-            <button type="button" class="h-full min-h-[190px] border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-2xl flex flex-col items-center justify-center p-6 text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 transition group">
+            <!-- 2. 비로그인 사용자용 샘플 안내 카드 -->
+            <th:block sec:authorize="isAnonymous()">
+                <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm opacity-75">
+                    <div class="h-28 bg-gradient-to-r from-blue-500 to-cyan-500 p-5 flex flex-col justify-between text-white">
+                        <div class="flex justify-between items-start">
+                            <span class="text-xs font-semibold px-2 py-0.5 bg-white/20 rounded backdrop-blur-sm">01분반</span>
+                            <span class="text-xs opacity-80">초대코드: <strong class="tracking-wider">CS101A</strong></span>
+                        </div>
+                        <h3 class="font-bold text-lg leading-tight">자료구조 및 알고리즘 (샘플)</h3>
+                    </div>
+                    <div class="p-5 space-y-3">
+                        <p class="text-xs text-slate-500">담당: 홍길동 교수님</p>
+                        <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                            <span class="text-slate-400">수강생 42명</span>
+                            <a th:href="@{/login}" class="text-blue-600 font-bold hover:underline">로그인 필요</a>
+                        </div>
+                    </div>
+                </div>
+            </th:block>
+
+            <!-- 3. 새로운 수업 추가 / 참가 점선 카드 -->
+            <!-- 교수 로그인 시 -->
+            <a sec:authorize="hasRole('ROLE_INSTRUCTOR')" th:href="@{/classes/new}"
+               class="h-full min-h-[190px] border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl flex flex-col items-center justify-center p-6 text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 transition group">
                 <div class="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center mb-2 transition">
                     <svg class="w-5 h-5 text-slate-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                 </div>
-                <span class="font-bold text-sm">새로운 수업 추가하기</span>
+                <span class="font-bold text-sm">새 수업 개설하기</span>
+                <span class="text-xs text-slate-400 mt-1">이번 학기 새로운 강의 공간을 만듭니다</span>
+            </a>
+
+            <!-- 학생 로그인 시 -->
+            <a sec:authorize="hasRole('ROLE_STUDENT')" th:href="@{/classes/join}"
+               class="h-full min-h-[190px] border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl flex flex-col items-center justify-center p-6 text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 transition group">
+                <div class="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center mb-2 transition">
+                    <svg class="w-5 h-5 text-slate-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                </div>
+                <span class="font-bold text-sm">초대 코드로 참가하기</span>
+                <span class="text-xs text-slate-400 mt-1">교수님께 받은 6자리 코드로 참여하세요</span>
+            </a>
+
+            <!-- 비로그인 시 -->
+            <a sec:authorize="isAnonymous()" th:href="@{/login}"
+               class="h-full min-h-[190px] border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl flex flex-col items-center justify-center p-6 text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 transition group">
+                <div class="w-10 h-10 rounded-full bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center mb-2 transition">
+                    <svg class="w-5 h-5 text-slate-600 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+                </div>
+                <span class="font-bold text-sm">로그인 후 수업 시작하기</span>
                 <span class="text-xs text-slate-400 mt-1">수업을 개설하거나 초대코드로 참여하세요</span>
-            </button>
+            </a>
+
         </div>
     </section>
 

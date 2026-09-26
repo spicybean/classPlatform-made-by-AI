@@ -71,8 +71,21 @@
   * `SecurityConfig`: 폼 로그인(`/login`), 로그아웃(`/logout`), 세션 무효화 및 쿠키 삭제, 접근 권한 체계화.
   * `AuthController`: 로그인/회원가입 뷰 렌더링 및 유효성 검증 에러 처리.
   * `login.html` & `register.html`: 반응형 모던 UI 폼 및 검증 에러/성공 메시지 피드백 렌더링.
-  * `layout/default.html`: `sec:authorize`를 통한 로그인(사용자명, 학번, 역할 뱃지, 로그아웃 버튼) / 비로그인(로그인, 회원가입 버튼) 상태 분기 처리.
+* **3차 코드 리뷰 피드백 반영 완료**:
+  * `UserRegisterDto`: 비밀번호 `max = 100` 제약 추가 (BCrypt 길이 공격 방어).
+  * `HomeController` & `index.html`: `?logout=true` 파라미터 처리 및 로그아웃 알림 배너(닫기 버튼 포함) 렌더링.
+  * `AuthController`: 이미 로그인된 사용자가 `/login` 또는 `/register` 접근 시 메인 대시보드로 리다이렉트하는 방어 로직 추가.
+* **수업 공간 및 수강 관리 (Classroom & Enrollment) 구현 완료**:
+  * `EnrollmentStatus`: `ENROLLED`(수강 중), `DROPPED`(수강 취소), `COMPLETED`(이수 완료) 상태 머신 정의.
+  * `ClassRoom`: JPA 엔티티 설계 (수업명, 과목코드, 개설학기, 분반, 수업설명, 6자리 고유 초대코드, 교수 매핑, 아카이빙 플래그).
+  * `Enrollment`: 수강생-수업 간 M:N 해소 엔티티 설계 및 `(student_id, classroom_id)` 복합 고유키 제약조건 설정.
+  * `ClassRoomRepository` & `EnrollmentRepository`: 초대코드 조회, 교수별 개설 수업 및 학생별 활성 수강 수업 조회 쿼리 구현.
+  * `ClassRoomService`: 혼동하기 쉬운 문자(0, 1, I, O)를 제외한 안전한 6자리 난수 초대코드 생성 로직, 수업 개설, 수강 신청 및 중복 검증 로직 구현.
+  * `ClassRoomController`: 교수용 수업 개설(`/classes/new`), 학생용 초대코드 참가(`/classes/join`), 수업 상세 대시보드(`/classes/{id}`) 엔드포인트 구현.
+  * `SecurityConfig`: `@EnableMethodSecurity` 활성화로 교수 전용 메서드 보안 인가 적용.
+  * `create.html`, `join.html`, `detail.html`: Tailwind CSS 기반 모던 수업 개설/참가/상세 뷰 템플릿 완성.
+  * `index.html` & `HomeController`: DB 조회 기반 실시간 내 수업 목록 카드 동적 렌더링(`th:each`) 연동 완료.
 
 #### 2. 다음 진행 계획 (Next Steps)
-* Phase 1 - 3단계: 수업 공간 및 수강 관리 (ClassRoom 엔티티, 6자리 초대 코드 생성, 수업 개설 및 수강 신청 뷰) 개발 착수
+* Phase 1 - 4단계: 주차별 강의 자료실 (WeekSection 및 Material 엔티티, 20MB 파일 업로드 서비스, 1~16주차 자료 등록 및 다운로드) 개발 착수
 
