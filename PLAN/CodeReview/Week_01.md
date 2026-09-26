@@ -773,3 +773,138 @@ private boolean isAuthenticated() {
 **총평**: 3차 리뷰에서 최우선으로 지적한 2가지 사항이 모두 올바르게 반영되었으며, 추가로 발견되었던 `AuthController` 로그인 상태 차단까지 깔끔하게 구현됨. `isAuthenticated()` 헬퍼 메서드의 구현 방식이 특히 우수함.
 
 > **현재 상태**: Phase 1 - 2단계(사용자 인증 및 권한) 코드가 리뷰 기준으로 프로덕션 수준에 근접하게 정비됨. 배너 닫힘 버튼은 선택 사항이므로 바로 **Phase 1 - 3단계(수업 공간 및 수강 관리)** 진행 가능.
+
+---
+
+## 📅 2026-09-27 (일) - 5차 UI/UX 고도화, 템플릿 예외 방어 및 디버깅 결과 코드 리뷰
+
+---
+
+### 📁 1. `AuthController.java` (L59-L69) — 비밀번호 일치 검증 순서 및 NPE 방어
+
+```java
+if (bindingResult.hasErrors()) {
+    return "auth/register";
+}
+
+if (form.getPassword() != null && !form.getPassword().equals(form.getPasswordConfirm())) {
+    bindingResult.rejectValue("passwordConfirm", "passwordMismatch", "비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+    return "auth/register";
+}
+```
+
+#### ✅ 잘된 점
+* `hasErrors()` 먼저 → `!= null` 가드 후 비밀번호 비교 순서가 올바름.
+* Null-safe하고 검증 흐름이 명확하며, 서비스 레이어의 범용 예외 대신 `passwordConfirm` 필드 에러(`rejectValue`)로 직접 연결하여 인풋 박스 하단에 직관적으로 에러를 노출함.
+
+---
+
+### 📁 2. `register.html` (L19-L26) & `join.html` (L18-L22) — Thymeleaf 컨텍스트 스코프 버그 수정
+
+```html
+<!-- 회원가입 폼 내부에 글로벌 에러 위치 -->
+<form th:action="@{/register}" th:object="${form}" method="post" class="space-y-5">
+    <div th:if="${#fields.hasGlobalErrors()}" ...>
+        ...
+    </div>
+```
+
+#### ✅ 잘된 점
+* `#fields` 헬퍼가 `<form th:object="...">` 외부에서 호출될 때 발생하던 `TemplateProcessingException`(500 에러) 및 그로 인한 비정상 `/login` 리다이렉트 결함을 완벽히 해결함.
+
+---
+
+### 📁 3. `join.html` (L23-L36) — 초대 코드 전용 입력 UX 및 힌트 문구
+
+```html
+<input type="text" id="inviteCode" th:field="*{inviteCode}" maxlength="6" autofocus
+       oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '')"
+       placeholder="예: CS101A"
+       class="w-full text-center tracking-[0.3em] font-mono text-2xl font-bold uppercase ...">
+<p class="text-[11px] text-slate-400 mt-2 text-center">대소문자 구분 없이 입력하실 수 있습니다.</p>
+```
+
+#### ✅ 잘된 점
+* `oninput`으로 즉시 대문자 변환 + 영숫자 필터링. 클라이언트 입력 정제가 직관적이고 효과적임.
+
+#### ⚠️ 개선 권고 사항 (UX 불일치)
+* 힌트는 `"대소문자 구분 없이 입력하실 수 있습니다"`인데, `oninput`이 강제 대문자 변환(`toUpperCase()`)을 수행하므로 사용자 관점에서 혼란이 있을 수 있음.
+* **수정 권장**: 안내 문구를 `"자동으로 대문자 변환됩니다"` 또는 `"영문 대문자 및 숫자로 자동 변환됩니다"`로 수정 권장.
+
+---
+
+### 📁 4. `detail.html` (L43-L66) — 초대 코드 원클릭 복사 및 클립보드 Fallback
+
+```javascript
+navigator.clipboard.writeText(code).then(() => {
+    ...
+}).catch(() => {
+    alert('초대 코드: ' + code);
+});
+```
+
+#### ✅ 잘된 점
+* `navigator.clipboard.writeText`를 활용해 원클릭 복사 및 2초간 `복사됨!` 토스트 피드백 제공.
+
+#### ⚠️ 개선 권고 사항 (HTTPS 환경 fallback)
+* `localhost` 환경에서는 Clipboard API가 정상 동작하나, 향후 HTTP 배포 환경이나 클립보드 권한 거부 시 `alert()`로 떨어지는 UX가 다소 투박함.
+* **수정 권장**: input 요소 생성 후 `select()` 및 `document.execCommand('copy')` 또는 세련된 토스트 알림을 통한 폴백 처리 고려.
+
+---
+
+### 📁 5. `default.html` (L69-L83) — 모바일 반응형 헤더 최적화
+
+```html
+<div class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 text-xs font-semibold text-slate-700">
+    <span class="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0"></span>
+    <span sec:authentication="principal.name">홍길동</span>
+    <span class="hidden sm:inline text-slate-400 font-normal">|</span>
+    <span class="hidden sm:inline text-blue-600 font-mono" sec:authentication="principal.studentNo">20260001</span>
+    ...
+</div>
+```
+
+#### ✅ 잘된 점
+* `hidden sm:inline`을 적용하여 좁은 모바일 화면에서 학번과 구분선을 적절히 숨김 처리. Tailwind 반응형 관용구를 올바르게 활용하여 헤더 레이아웃 깨짐을 방지함.
+
+---
+
+### 📁 6. `index.html` (L36-L101) — 역할별 히어로 배너 분기 및 4색 테마 순환
+
+```html
+<section sec:authorize="hasRole('ROLE_INSTRUCTOR')" ...> ... </section>
+<section sec:authorize="hasRole('ROLE_STUDENT')" ...> ... </section>
+<section sec:authorize="isAnonymous()" ...> ... </section>
+```
+
+#### ✅ 잘된 점
+* `sec:authorize`로 교수/학생/비로그인 3분기 처리. Spring Security Thymeleaf dialect를 올바르게 활용하여 사용자 역할에 꼭 맞는 CTA를 제시함.
+* 수업 카드에 `iterStat.index % 4`를 통한 4색 그라데이션 테마 순환 적용으로 과목 간 시각적 식별력 우수.
+
+#### ⚠️ 개선 권고 사항 (`sec:authentication` 폴백)
+* `<span sec:authentication="principal.name">교수</span>님!` 형태에서 인증 객체 이상 시 하드코딩 텍스트가 노출될 수 있음. 로그인 상태에서만 렌더링되므로 큰 문제는 아니지만 참고.
+
+---
+
+### 📁 7. `login.html` (L16-L36) — 알림 배너 닫기 및 자동 페이드아웃
+
+#### ✅ 잘된 점
+* 수동 닫기(`X`) 버튼 및 3.5초 자동 페이드아웃 애니메이션(`transition-opacity duration-500`) 적용으로 UX 향상.
+
+#### ⚠️ 개선 권고 사항 (스크립트 위치)
+* 페이드아웃 스크립트가 인라인 하단에 분산 배치되어 있으므로, 추후 레이아웃 공통 자바스크립트로 일원화 관리 권장.
+
+---
+
+### 📊 5차 리뷰 종합 평가
+
+| 항목 | 평가 | 세부 내용 |
+| :--- | :---: | :--- |
+| **코드 구조 및 안정성** | ✅ 우수 | NPE 가드 처리, Thymeleaf 컨텍스트 예외 완벽 해결 |
+| **Null 안전성** | ✅ 양호 | `form.getPassword() != null` 방어 로직 적용 완료 |
+| **UX 일관성** | ⚠️ 주의 | `join.html` 안내 문구(`대소문자 구분 없이` vs 자동 대문자 변환) 정합성 조정 필요 |
+| **보안 및 클라이언트 검증** | ✅ 양호 | CSRF 및 XSS 안전, 클라이언트 입력 실시간 정제 |
+| **모바일 반응형 대응** | ✅ 우수 | 상단 바 헤더 줄바꿈 방지 및 카드 그리드 유연성 확보 |
+
+> **수정 우선순위**: `join.html` 안내 문구(`대소문자 구분 없이 입력하실 수 있습니다` ➡️ `자동으로 대문자 변환됩니다`) 수정이 가장 빠르고 효과적인 개선 사항임.
+
