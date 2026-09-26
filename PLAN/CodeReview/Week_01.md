@@ -367,3 +367,281 @@ public class HomeController {
 | **`th:href="@{/login}"` 패턴 적용** | — | ⚠️ 신규 권장 사항 |
 
 **총평**: 1차 리뷰에서 지적한 2가지 사항이 모두 명확하게 반영되었음. 추가로 발견된 2가지 개선 권장 사항(생성자 주입, `th:href` 패턴)은 다음 단계 회원가입/로그인 개발 시 함께 적용하면 깔끔하게 처리될 예정.
+
+---
+
+## 📅 2026-09-26 (토) - 3차 리뷰: Phase 1 - 2단계 사용자 인증 및 권한 코드 리뷰
+
+> **리뷰 대상**: 새로 생성된 9개 파일 (Auth & User Feature)  
+> `Role.java` / `User.java` / `UserRepository.java` / `UserRegisterDto.java` / `UserService.java` / `CustomUserDetails.java` / `SecurityConfig.java` (업데이트) / `AuthController.java` / `login.html` / `register.html`
+
+---
+
+### 📁 1. `Role.java` — 역할 체계 Enum
+
+```java
+public enum Role {
+    ROLE_STUDENT("학생"),
+    ROLE_INSTRUCTOR("교수"),
+    ROLE_TA("조교"),
+    ROLE_ALUMNI("수료/졸업생");
+
+    private final String description;
+    ...
+}
+```
+
+#### ✅ 잘된 점
+* Spring Security의 역할 명명 규칙(`ROLE_` 접두사)을 enum 자체에서 따르고 있어, `SimpleGrantedAuthority(user.getRole().name())`로 변환 시 별도 가공 없이 즉시 사용 가능.
+* `description` 필드가 있어 UI에서 `role.getDescription()`으로 "학생", "교수" 등 한국어 라벨을 직접 렌더링할 수 있음.
+
+#### ⚠️ 주의 및 개선점
+* `ROLE_ALUMNI`(수료/졸업생)는 현재 회원가입 화면에서 선택 불가능하도록 의도적으로 숨겨져 있음 — 추후 관리자 기능에서만 ALUMNI로 전환할 수 있도록 정책 문서화 필요.
+
+---
+
+### 📁 2. `User.java` — JPA 엔티티
+
+```java
+@Entity
+@Table(name = "users")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class User {
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true, length = 100)
+    private String email;
+
+    @Column(nullable = false, length = 200)
+    private String password;
+
+    @Column(nullable = false, unique = true, length = 30)
+    private String studentNo; // 학번 또는 교번
+
+    @Enumerated(EnumType.STRING)
+    private Role role;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    public void prePersist() { this.createdAt = LocalDateTime.now(); }
+}
+```
+
+#### ✅ 잘된 점
+* **`@NoArgsConstructor(access = AccessLevel.PROTECTED)`**: JPA 스펙은 기본 생성자를 요구하지만 외부에서 직접 `new User()`로 불완전한 객체를 생성하는 것을 방지하는 올바른 설계 패턴.
+* **`@Enumerated(EnumType.STRING)`**: `ORDINAL` 대신 `STRING` 사용 → enum 순서가 바뀌어도 DB 저장값이 깨지지 않음 (매우 중요한 선택).
+* **`updatable = false`가 있는 `createdAt`**: 생성 시점 이후 JPA가 절대 UPDATE하지 못하도록 DB 레벨에서 보장.
+* **Builder 패턴**: `@Builder`를 `@NoArgsConstructor`와 함께 사용하여 불완전한 객체 생성을 차단하면서도 유연한 생성을 지원.
+
+#### ⚠️ 주의 및 개선점
+* **`password` 컬럼 길이 200**: BCrypt 해시는 60자로 고정이므로 200자로 충분하나, 명시적으로 `length = 60`을 쓰면 의도가 더 분명해짐 (마이너 의견).
+* **`updatedAt` 필드 부재**: 현재는 생성일시만 있음. 비밀번호 변경 이력 추적이나 프로필 수정 감지를 위해 `updatedAt` 필드 추가를 고려할 것.
+* **계정 상태 필드 부재**: 현재 `CustomUserDetails`의 `isEnabled()`, `isAccountNonLocked()` 등이 항상 `true`를 반환함. 향후 계정 정지/탈퇴 처리를 위해 `isActive`, `deletedAt` 필드 도입 권장.
+
+---
+
+### 📁 3. `UserRepository.java` — Spring Data JPA 인터페이스
+
+```java
+public interface UserRepository extends JpaRepository<User, Long> {
+    Optional<User> findByEmail(String email);
+    Optional<User> findByStudentNo(String studentNo);
+    boolean existsByEmail(String email);
+    boolean existsByStudentNo(String studentNo);
+}
+```
+
+#### ✅ 잘된 점
+* `findBy~`는 `Optional`로 감싸 NPE(NullPointerException) 위험 없이 안전하게 처리.
+* 중복 체크용 `existsBy~`를 별도로 사용하여 불필요하게 전체 엔티티를 조회하지 않고 `COUNT` 쿼리로 가볍게 처리.
+
+#### ⚠️ 주의 및 개선점
+* 현재 수준에서는 완벽함. 추후 다음 쿼리가 추가될 예정:
+  ```java
+  List<User> findByRole(Role role);   // 역할별 사용자 목록 조회
+  ```
+
+---
+
+### 📁 4. `UserRegisterDto.java` — 회원가입 입력값 검증 DTO
+
+```java
+@NotBlank @Email private String email;
+@NotBlank @Size(min = 6) private String password;
+@NotBlank private String name;
+@NotBlank @Pattern(regexp = "^[0-9A-Za-z]{4,20}$") private String studentNo;
+@NotNull private Role role;
+```
+
+#### ✅ 잘된 점
+* **이메일/비밀번호/학번** 3개 필드 모두 서로 다른 적절한 Validation 어노테이션 조합 적용.
+* 학번 정규식(`^[0-9A-Za-z]{4,20}$`)으로 허용 범위 내에서 영문/숫자 혼합 지원.
+
+#### ⚠️ 주의 및 개선점
+* **비밀번호 최대 길이 없음**: 현재는 `min = 6`만 있어 무제한 길이 입력이 가능함. 극단적으로 긴 비밀번호는 BCrypt 해싱 시간을 공격 벡터로 악용할 수 있으므로 `@Size(min = 6, max = 100)` 권장.
+* **비밀번호 확인 필드 없음**: 현재 회원가입 폼에서 비밀번호를 한 번만 입력받음. UX 표준상 `passwordConfirm` 필드를 추가하고 커스텀 Validator로 두 값을 비교하는 것이 일반적.
+
+---
+
+### 📁 5. `UserService.java` — 비즈니스 로직 및 인증 처리
+
+```java
+@Service
+@Transactional(readOnly = true)
+public class UserService implements UserDetailsService {
+
+    @Transactional
+    public Long register(UserRegisterDto dto) {
+        // 중복 체크 후 저장
+        ...
+        User user = User.builder()
+            .email(dto.getEmail().trim().toLowerCase())
+            ...
+            .build();
+        return userRepository.save(user).getId();
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String email) {
+        ...
+        return new CustomUserDetails(user);
+    }
+}
+```
+
+#### ✅ 잘된 점
+* **`@Transactional(readOnly = true)` + 쓰기 메서드에만 `@Transactional`**: 읽기 작업은 readOnly로 DB 락 경합을 줄이고, 쓰기 작업만 완전한 트랜잭션을 사용하는 모범적인 트랜잭션 전략.
+* **`email.trim().toLowerCase()`**: 사용자가 대소문자를 섞거나 앞뒤 공백을 입력해도 정규화되어 저장됨. `loadUserByUsername`에서도 동일하게 적용 → 일관성 보장.
+* **생성자 주입**: `UserRepository`와 `PasswordEncoder` 모두 생성자 주입으로 불변성과 테스트 편의성 확보.
+
+#### ⚠️ 주의 및 개선점
+* **중복 체크와 저장 사이 레이스 컨디션**: 다중 서버 환경에서 동시에 같은 이메일로 가입 요청이 들어오면 `existsByEmail` 체크를 통과한 후 동시에 `save`가 실행되어 `unique` 제약 위반 에러가 발생할 수 있음. 현재는 단일 서버 환경이므로 큰 문제는 없으나, 향후 `DataIntegrityViolationException` catch 블록 추가 권장.
+* **`loadUserByUsername` 로그 노출 주의**: 에러 메시지에 이메일을 그대로 포함(`"가입되지 않은 이메일입니다: " + email`)하면 로그 노출 시 보안 이슈. 운영 전환 시 메시지를 일반화하거나 로그 레벨을 DEBUG로 변경할 것.
+
+---
+
+### 📁 6. `CustomUserDetails.java` — Spring Security 세션 사용자 정보
+
+```java
+public class CustomUserDetails implements UserDetails {
+    private final Long id;
+    private final String email;
+    private final String name;
+    private final String studentNo;
+    private final Role role;
+    ...
+}
+```
+
+#### ✅ 잘된 점
+* 기본 Spring Security `User` 객체 대신 커스텀 구현을 통해 세션에 `id`, `name`, `studentNo`, `role` 등 추가 정보를 담을 수 있음. 헤더의 `sec:authentication="principal.name"`이 바로 이 필드를 참조하는 구조.
+* 모든 필드가 `private final`로 불변 보장.
+
+#### ⚠️ 주의 및 개선점
+* `isAccountNonExpired()`, `isAccountNonLocked()`, `isEnabled()` 3개가 모두 `true` 하드코딩. `User` 엔티티에 `isActive` 등의 상태 필드가 추가되면 반드시 여기서 해당 필드를 반환하도록 연결 필요.
+* **직렬화 권장**: 세션 클러스터링 환경에서 `CustomUserDetails`가 세션에 저장되므로 `implements Serializable`과 `serialVersionUID` 선언 권장. 현재 단일 서버 환경에서는 무방.
+
+---
+
+### 📁 7. `SecurityConfig.java` — Spring Security 필터 체인 (업데이트)
+
+```java
+.authorizeHttpRequests(auth -> auth
+    .requestMatchers("/", "/login", "/register", "/h2-console/**", "/css/**", "/js/**", "/images/**").permitAll()
+    .anyRequest().authenticated()
+)
+.formLogin(form -> form
+    .loginPage("/login")
+    .usernameParameter("email")
+    .defaultSuccessUrl("/", true)
+    .failureUrl("/login?error=true")
+)
+.logout(logout -> logout
+    .logoutUrl("/logout")
+    .invalidateHttpSession(true)
+    .deleteCookies("JSESSIONID")
+)
+```
+
+#### ✅ 잘된 점
+* 이전 `/**` 전체 `permitAll`에서 **최소 공개 경로만 허용**하는 인가 체계로 정확히 전환됨.
+* `usernameParameter("email")` 설정으로 Spring Security의 기본 `username` 파라미터 대신 `email` 파라미터를 인식하도록 커스터마이징.
+* 로그아웃 시 `invalidateHttpSession(true)` + `deleteCookies("JSESSIONID")` 조합으로 세션 잔류 취약점 방지.
+
+#### ⚠️ 주의 및 개선점
+* **`UserDetailsService` 빈 연동 명시 부재**: `SecurityConfig`에 `UserService`를 `AuthenticationManagerBuilder`에 명시적으로 등록하지 않아도 스프링이 자동으로 `UserDetailsService` 구현체를 찾아 연결함. 현재는 `UserService` 하나뿐이라 자동 연결되지만, 구현체가 2개 이상 생기면 `@Primary` 또는 명시적 `AuthenticationProvider` 등록 필요.
+* 로그아웃 성공 후 `/?logout=true` 파라미터가 전달되지만, 현재 `HomeController`에서 이 파라미터를 처리하는 코드가 없음 → 로그아웃 성공 메시지를 홈 화면에 보여주려면 처리 로직 추가 필요.
+
+---
+
+### 📁 8. `AuthController.java` — 로그인/회원가입 컨트롤러
+
+```java
+@GetMapping("/login")
+public String loginPage(@RequestParam(required = false) String error, ...)
+
+@PostMapping("/register")
+public String register(@Valid @ModelAttribute("form") UserRegisterDto form,
+                       BindingResult bindingResult) {
+    if (bindingResult.hasErrors()) return "auth/register";
+    try {
+        userService.register(form);
+        return "redirect:/login?registered=true";
+    } catch (IllegalArgumentException e) {
+        bindingResult.reject("duplicate", e.getMessage());
+        return "auth/register";
+    }
+}
+```
+
+#### ✅ 잘된 점
+* `@Valid`와 `BindingResult`를 올바른 순서로 선언(`@Valid DTO` 바로 다음에 `BindingResult`) — 이 순서가 틀리면 검증 에러가 예외로 throw됨.
+* `bindingResult.reject("duplicate", e.getMessage())`로 글로벌 에러로 등록하여 필드 에러와 구분되게 처리.
+* 생성자 주입 패턴 적용됨.
+
+#### ⚠️ 주의 및 개선점
+* **POST 후 GET 리다이렉트(PRG 패턴) 올바르게 적용됨**: 회원가입 성공 시 `redirect:/login?registered=true`로 처리하여 새로고침 시 중복 제출을 방지. 잘 구현됨.
+* **로그인 상태에서 `/login`/`/register` 접근 차단 없음**: 이미 로그인한 사용자가 `/login`에 접근하면 로그인 폼이 그대로 노출됨. 추후 `@GetMapping("/login")`에서 `SecurityContextHolder`로 인증 여부를 확인하고 이미 로그인된 경우 `/`로 리다이렉트하는 처리 권장.
+
+---
+
+### 📁 9. `login.html` & `register.html` — 인증 화면 UI
+
+#### ✅ 잘된 점
+* **`login.html`**: `autofocus` 속성으로 첫 번째 입력 필드(이메일)에 자동 포커스. `th:href="@{/register}"` 표준 URL 패턴 사용. 에러/성공 메시지를 시각적으로 구분되는 배너로 표시.
+* **`register.html`**: 역할 선택 UI를 직관적인 라디오 카드 UI로 구현. CSS `:has()` 선택자(`[&:has(:checked)]`)를 활용한 체크 상태 시각 피드백. 각 필드 아래 즉각적인 에러 메시지 출력(`th:errors`).
+* 두 페이지 모두 `th:href="@{...}"` Thymeleaf URL 표준 패턴 사용 (2차 리뷰 권장 사항 완전 반영).
+
+#### ⚠️ 주의 및 개선점
+* **`login.html` CSRF 토큰**: `th:action="@{/login}"`을 사용하면 Thymeleaf가 자동으로 `_csrf` 히든 필드를 삽입함. 이는 현재 구현이 맞으나, 반드시 테스트로 정상 동작을 확인해야 함.
+* **`register.html` 비밀번호 확인 필드 없음**: `UserRegisterDto` 리뷰에서 언급한 것과 동일. UI 레벨에서도 `passwordConfirm` 입력란이 없어 실수로 잘못 입력해도 바로 알 수 없음.
+* **접근성(Accessibility)**: 라디오 버튼 카드의 `<label>` 요소가 암묵적으로 내부 `<input>`과 연결되어 있어 스크린 리더 호환성은 양호. 추후 `aria-required`, `aria-describedby` 등 ARIA 속성 추가 권장.
+
+---
+
+### 📊 3차 리뷰 종합
+
+| 파일 | 완성도 | 핵심 개선 권장 |
+| :--- | :---: | :--- |
+| `Role.java` | ⭐⭐⭐⭐⭐ | ALUMNI 역할 진입 정책 문서화 필요 |
+| `User.java` | ⭐⭐⭐⭐☆ | `updatedAt`, `isActive` 필드 추후 추가 필요 |
+| `UserRepository.java` | ⭐⭐⭐⭐⭐ | 완벽한 최소 구성 |
+| `UserRegisterDto.java` | ⭐⭐⭐⭐☆ | 비밀번호 최대 길이 + 확인 필드 추가 권장 |
+| `UserService.java` | ⭐⭐⭐⭐☆ | 레이스 컨디션 대비 예외 처리 + 로그 보안 개선 |
+| `CustomUserDetails.java` | ⭐⭐⭐⭐☆ | `isEnabled()` 등 상태 필드와 연동 필요 |
+| `SecurityConfig.java` | ⭐⭐⭐⭐⭐ | 전 단계 대비 명확하게 개선됨 |
+| `AuthController.java` | ⭐⭐⭐⭐☆ | 로그인 상태 시 `/login` 접근 리다이렉트 추가 권장 |
+| `login.html` / `register.html` | ⭐⭐⭐⭐☆ | 비밀번호 확인 필드 없음, ARIA 속성 권장 |
+
+**최우선 수정 사항 (다음 단계 전 적용 권장)**:
+1. `UserRegisterDto` 비밀번호 `max = 100` 추가
+2. `SecurityConfig` 로그아웃 메시지 처리 (`/?logout=true` 대응)
+
+**차후 적용 사항 (Phase 2~3에서 처리 예정)**:
+1. `User` 엔티티 `updatedAt`, `isActive` 필드 추가
+2. `CustomUserDetails` 상태 필드 연동
+3. `UserService` `DataIntegrityViolationException` 핸들링
