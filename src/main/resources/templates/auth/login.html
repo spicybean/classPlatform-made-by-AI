@@ -13,15 +13,25 @@
         </div>
 
         <!-- 성공 메시지 (회원가입 후 리다이렉트 시) -->
-        <div th:if="${successMessage}" class="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm flex items-center gap-2">
-            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span th:text="${successMessage}"></span>
+        <div id="loginSuccessBanner" th:if="${successMessage}" class="mb-5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm flex items-center justify-between transition-opacity duration-500">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span th:text="${successMessage}"></span>
+            </div>
+            <button type="button" onclick="document.getElementById('loginSuccessBanner').remove()" class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-emerald-100/50">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
         </div>
 
         <!-- 에러 메시지 -->
-        <div th:if="${errorMessage}" class="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2">
-            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span th:text="${errorMessage}"></span>
+        <div id="loginErrorBanner" th:if="${errorMessage}" class="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center justify-between transition-opacity duration-500">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span th:text="${errorMessage}"></span>
+            </div>
+            <button type="button" onclick="document.getElementById('loginErrorBanner').remove()" class="text-slate-400 hover:text-slate-600 p-1 rounded hover:bg-rose-100/50">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
         </div>
 
         <!-- 로그인 폼 -->
@@ -57,6 +67,19 @@
             </p>
         </div>
     </div>
+
+    <!-- 스크립트: 알림 배너 자동 페이드아웃 -->
+    <script>
+        ['loginSuccessBanner', 'loginErrorBanner'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                setTimeout(() => {
+                    el.classList.add('opacity-0');
+                    setTimeout(() => el.remove(), 500);
+                }, 3500);
+            }
+        });
+    </script>
 </div>
 </body>
 </html>

@@ -4,11 +4,16 @@
 <div th:fragment="content" class="space-y-6">
 
     <!-- 성공 알림 배너 (개설 또는 참가 완료 시) -->
-    <div th:if="${alertSuccess}" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center gap-3 shadow-sm">
-        <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    <div id="alertSuccessBanner" th:if="${alertSuccess}" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center justify-between shadow-sm transition-opacity duration-500">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <p class="font-bold text-slate-900" th:text="${alertSuccess}">알림 메시지</p>
         </div>
-        <p class="font-bold text-slate-900" th:text="${alertSuccess}">알림 메시지</p>
+        <button type="button" onclick="document.getElementById('alertSuccessBanner').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-emerald-100/50 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
     </div>
 
     <!-- 수업 헤더 배너 -->
@@ -43,10 +48,20 @@
                 <div>
                     <span class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">학생 참여 초대 코드</span>
                     <div class="flex items-center gap-2 mt-1">
-                        <span class="font-mono text-xl font-extrabold text-blue-600 tracking-widest bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm"
+                        <span id="inviteCodeText"
+                              class="font-mono text-xl font-extrabold text-blue-600 tracking-widest bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm"
                               th:text="${classroom.inviteCode}">
                             CS101A
                         </span>
+                        <button type="button"
+                                onclick="copyInviteCode()"
+                                title="초대 코드 복사"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition active:scale-95">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
+                            </svg>
+                            <span id="copyBtnText">복사</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -110,6 +125,36 @@
         </div>
     </div>
 
+    <!-- 스크립트: 초대 코드 복사 & 알림 배너 자동 페이드아웃 -->
+    <script>
+        function copyInviteCode() {
+            const codeEl = document.getElementById('inviteCodeText');
+            const btnText = document.getElementById('copyBtnText');
+            if (!codeEl) return;
+            const code = codeEl.innerText.trim();
+
+            navigator.clipboard.writeText(code).then(() => {
+                if (btnText) {
+                    const originalText = btnText.innerText;
+                    btnText.innerText = '복사됨!';
+                    setTimeout(() => {
+                        btnText.innerText = originalText;
+                    }, 2000);
+                }
+            }).catch(() => {
+                alert('초대 코드: ' + code);
+            });
+        }
+
+        // 알림 배너 4초 후 자동 페이드아웃
+        const banner = document.getElementById('alertSuccessBanner');
+        if (banner) {
+            setTimeout(() => {
+                banner.classList.add('opacity-0');
+                setTimeout(() => banner.remove(), 500);
+            }, 3500);
+        }
+    </script>
 </div>
 </body>
 </html>
