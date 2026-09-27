@@ -1227,5 +1227,90 @@ if (submission != null) {
 | **Null Safety** | ✅ 완벽 | Thymeleaf `#lists.size` 널 가드 및 엔티티 프리미티브 타입 검증 |
 | **테스트 검증** | ✅ 통과 | Gradle Unit/Integration Test 8종 및 HTTP E2E ALL PASS |
 
+---
+
+### 📌 8차 리뷰 추가 개선 제언 및 미반영 과제 목록 (Pending)
+
+> 아래 항목들은 코드 리뷰 분석을 통해 도출되었으며, 현재 MVP 동작에는 영향이 없어 **[미반영(진행 대기)]** 상태로 기록하고 차후 고도화 스프린트에서 순차 반영합니다.
+
+1. **클라이언트-서버 간 시간대(Timezone) 불일치 위험 대비**
+   - **상태**: ⏸️ `[미반영 / 진행 대기]`
+   - **내용**: `CreateAssignmentDto`에서 `dueDate`를 `LocalDateTime.parse()`로 처리 중. 클라우드 배포 시 서버(UTC)와 브라우저(KST) 간 시차 보정을 위해 `Asia/Seoul` 전역 타임존 고정 또는 `ZonedDateTime` 도입 필요.
+
+2. **제출 파일 확장자 및 MIME 화이트리스트 검증 부재**
+   - **상태**: ⏸️ `[미반영 / 진행 대기]`
+   - **내용**: 현재 20MB 용량 체크는 동작하나 파일 확장자 제한이 없음. `.exe`, `.bat`, `.sh` 등 악성 실행 스크립트 업로드를 원천 차단하기 위한 허용 확장자 화이트리스트 검증 로직 추가 권장.
+
+3. **DTO 유효성 검증의 컨트롤러-서비스 계층 분리**
+   - **상태**: ⏸️ `[미반영 / 진행 대기]`
+   - **내용**: `CreateAssignmentDto.dueDate`의 포맷 파싱 예외를 서비스가 아닌 컨트롤러 `@Valid` 바인딩 시점에서 `@DateTimeFormat`으로 포착하여 부드러운 폼 에러 피드백 제공 필요.
+
+4. **동시 채점/수정 시 덮어쓰기(Lost Update) 대비**
+   - **상태**: ⏸️ `[미반영 / 진행 대기]`
+   - **내용**: 다중 세션 또는 향후 조교(TA) 기능 도입 시 동일 제출물에 대한 동시 채점 충돌을 방지하기 위한 `@Version` 낙관적 락(Optimistic Lock) 도입 검토.
+
+---
+
+## 📅 2026-09-27 (일) - 9차 스피드 그레이더 (Speed Grader) 구현 및 정밀 보안 리뷰
+
+---
+
+### 📁 1. `speedgrader.html` & `AssignmentController.java` — 2-Column 분할 스피드 채점 환경
+
+```html
+<!-- 좌측 70%: 인라인 과제 뷰어 (PDF iframe, 이미지, 텍스트/코드 뷰어) -->
+<iframe th:if="${currentStudent.previewType == 'pdf'}"
+        th:src="@{/classes/{cId}/assignments/{aId}/submissions/{sId}/preview(...)}"
+        class="w-full h-full border-0 bg-white"></iframe>
+
+<!-- 우측 30%: 학생 프로필, 루브릭 퀵 버튼, 점수 및 피드백, 저장 후 다음 학생 -->
+<button type="button" onclick="submitWithAction('saveAndNext')" class="bg-indigo-600 ...">
+    <i class="fa-solid fa-floppy-disk"></i> 저장 후 다음 학생
+</button>
+```
+
+#### ✅ 분석 및 잘된 점
+* **Canvas LMS급 사용자 경험**: 좌측에 문서를 실시간 렌더링하고, 우측에서 점수/피드백을 작성한 뒤 `Ctrl + Enter` 또는 `[저장 후 다음 학생]` 버튼으로 1초 만에 다음 학생으로 연속 채점 가능.
+* **미제출 학생 지원**: 과제를 제출하지 않은 학생에게도 0점 부여 및 안내 피드백 등록이 가능하도록 `Submission` 엔티티의 파일 필드를 유연하게 개선.
+
+---
+
+### 📁 2. `FileStorageService.java` — 프로그래밍 과제 소스코드 확장자 화이트리스트 확장
+
+```java
+private static final Set<String> ALLOWED_EXTENSIONS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+        "pdf", "ppt", "pptx", "doc", "docx", "xls", "xlsx",
+        "hwp", "hwpx", "zip", "txt", "png", "jpg", "jpeg", "gif", "csv",
+        "py", "java", "c", "cpp", "js", "html", "css", "sql", "json", "md"
+)));
+```
+
+* 컴퓨터공학 등 코딩 과제 제출을 위한 소스 파일(`.py`, `.java`, `.c`, `.cpp` 등) 안전 허용.
+* 실행 바이너리(`.exe`, `.bat`, `.sh`, `.jar` 등)는 여전히 철저히 차단.
+
+---
+
+### 🚨 3. Claude AI 리뷰 지적 사항 및 자가 수정 (Self-Healing) 결과
+
+| 지적 영역 | 세부 지적 사항 | 자가 치유(Self-Healing) 조치 결과 |
+| :--- | :--- | :--- |
+| **보안 (인증)** | `previewSubmission`에 `@PreAuthorize` 누락 및 비인증 NPE 위험 | `@PreAuthorize("isAuthenticated()")` 추가 및 `userDetails == null` 401 차단 |
+| **보안 (헤더)** | `Content-Type` 조작에 따른 헤더 인젝션 잠재 위험 | `try-catch` 안전 MIME 파싱 및 `APPLICATION_OCTET_STREAM` 폴백 |
+| **런타임 NPE** | `speedGraderPage`에서 `classRoom.getInstructor()` null 참조 위험 | null 가드 추가 (`classRoom.getInstructor() == null`) |
+| **엣지 케이스** | 미제출 학생 채점 시 `filePath` null 처리 누락 가능성 | `downloadSubmission` 및 `previewSubmission`에 `filePath == null` 방어 로직 추가 |
+| **유효성 검증** | `gradeInSpeedGrader`에서 음수 점수 입력 가능성 | 컨트롤러 레벨에서 `score < 0` 1차 검증 가드 추가 |
+
+---
+
+### 📊 9차 리뷰 종합 평가
+
+| 항목 | 평가 | 세부 조치 결과 |
+| :--- | :---: | :--- |
+| **스피드 그레이더 UX** | 🚀 최상 | 브라우저 인라인 뷰어 + 순차 학생 자동 이동 + 단축키 |
+| **접근 통제 & 인증** | 🛡️ 완벽 | `@PreAuthorize("isAuthenticated()")` 및 담당 교수 일치 확인 |
+| **파일 보안 및 MIME** | 🛡️ 완벽 | 안전 확장자 화이트리스트 + 헤더 인젝션 방어 폴백 |
+| **자가 치유 (Self-Healing)** | ✅ 완료 | Claude Sonnet 지적 5대 결함 100% 코드 반영 |
+| **전체 테스트 검증** | ✅ 통과 | Gradle Unit/Integration 18개 및 HTTP E2E ALL PASS |
+
 
 

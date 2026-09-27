@@ -2,6 +2,7 @@ package com.uniclass.domain.assignment.controller;
 
 import com.uniclass.domain.assignment.dto.AssignmentResponseDto;
 import com.uniclass.domain.assignment.dto.CreateAssignmentDto;
+import com.uniclass.domain.assignment.dto.SpeedGraderDto;
 import com.uniclass.domain.assignment.dto.SubmissionItemDto;
 import com.uniclass.domain.assignment.dto.SubmitAssignmentDto;
 import com.uniclass.domain.assignment.service.AssignmentService;
@@ -143,10 +144,14 @@ public class AssignmentController {
      * 학생 제출 파일 다운로드 (제출 학생 본인 및 담당 교수)
      */
     @GetMapping("/{assignmentId}/submissions/{submissionId}/download")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Resource> downloadSubmission(@PathVariable("classroomId") Long classroomId,
                                                         @PathVariable("assignmentId") Long assignmentId,
                                                         @PathVariable("submissionId") Long submissionId,
                                                         @AuthenticationPrincipal CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
         boolean isInstructor = userDetails.getRole() == Role.ROLE_INSTRUCTOR;
         DownloadResult result = assignmentService.downloadSubmission(classroomId, assignmentId, submissionId, userDetails.getId(), isInstructor);
 
@@ -163,9 +168,13 @@ public class AssignmentController {
      * 과제 첨부파일(교수 양식) 다운로드
      */
     @GetMapping("/{assignmentId}/attachment/download")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Resource> downloadAttachment(@PathVariable("classroomId") Long classroomId,
                                                        @PathVariable("assignmentId") Long assignmentId,
                                                        @AuthenticationPrincipal CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
         DownloadResult result = assignmentService.downloadAssignmentAttachment(classroomId, assignmentId, userDetails.getId());
 
         String encodedFilename = UriUtils.encode(result.originalFilename(), StandardCharsets.UTF_8);
@@ -197,5 +206,98 @@ public class AssignmentController {
         }
 
         return "redirect:/classes/" + classroomId + "/assignments/" + assignmentId;
+    }
+
+    /**
+     * 학생 제출 파일 브라우저 인라인 미리보기 (Speed Grader 및 뷰어용)
+     */
+    @GetMapping("/{assignmentId}/submissions/{submissionId}/preview")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Resource> previewSubmission(@PathVariable("classroomId") Long classroomId,
+                                                      @PathVariable("assignmentId") Long assignmentId,
+                                                      @PathVariable("submissionId") Long submissionId,
+                                                      @AuthenticationPrincipal CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        boolean isInstructor = userDetails.getRole() == Role.ROLE_INSTRUCTOR;
+        DownloadResult result = assignmentService.previewSubmission(classroomId, assignmentId, submissionId, userDetails.getId(), isInstructor);
+
+        String encodedFilename = UriUtils.encode(result.originalFilename(), StandardCharsets.UTF_8);
+        String contentDisposition = "inline; filename=\"" + encodedFilename + "\"; filename*=UTF-8''" + encodedFilename;
+
+        MediaType mediaType;
+        try {
+            mediaType = MediaType.parseMediaType(result.contentType());
+        } catch (Exception e) {
+            mediaType = MediaType.APPLICATION_OCTET_STREAM;
+        }
+
+        return ResponseEntity.ok()
+                .contentType(mediaType)
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition)
+                .body(result.resource());
+    }
+
+    /**
+     * 스피드 그레이더 화면 (교수 전용)
+     */
+    @GetMapping("/{assignmentId}/speedgrader")
+    @PreAuthorize("hasRole('ROLE_INSTRUCTOR')")
+    public String speedGraderPage(@PathVariable("classroomId") Long classroomId,
+                                  @PathVariable("assignmentId") Long assignmentId,
+                                  @RequestParam(value = "studentId", required = false) Long studentId,
+                                  @AuthenticationPrincipal CustomUserDetails userDetails,
+                                  Model model) {
+        if (userDetails == null) {
+            return "redirect:/login";
+        }
+        ClassRoom classRoom = classRoomService.getClassRoomDetail(classroomId);
+        if (classRoom.getInstructor() == null || !classRoom.getInstructor().getId().equals(userDetails.getId())) {
+            return "redirect:/?error=forbidden";
+        }
+
+        SpeedGraderDto speedGrader = assignmentService.getSpeedGraderData(classroomId, assignmentId, userDetails.getId(), studentId);
+
+        model.addAttribute("classroom", classRoom);
+        model.addAttribute("speedGrader", speedGrader);
+        model.addAttribute("assignment", speedGrader.getAssignment());
+        model.addAttribute("currentStudent", speedGrader.getCurrentStudent());
+
+        return "assignment/speedgrader";
+    }
+
+    /**
+     * 스피드 그레이더 채점 및 다음 학생 자동 이동 (교수 전용)
+     */
+    @PostMapping("/{assignmentId}/speedgrader/grade")
+    @PreAuthorize("hasRole('ROLE_INSTRUCTOR')")
+    public String gradeInSpeedGrader(@PathVariable("classroomId") Long classroomId,
+                                     @PathVariable("assignmentId") Long assignmentId,
+                                     @RequestParam("studentId") Long studentId,
+                                     @RequestParam("score") int score,
+                                     @RequestParam(value = "feedback", required = false) String feedback,
+                                     @RequestParam(value = "nextStudentId", required = false) Long nextStudentId,
+                                     @RequestParam(value = "action", defaultValue = "save") String action,
+                                     @AuthenticationPrincipal CustomUserDetails userDetails,
+                                     RedirectAttributes redirectAttributes) {
+        if (score < 0) {
+            redirectAttributes.addFlashAttribute("gradeErrorMessage", "점수는 0점 이상이어야 합니다.");
+            return "redirect:/classes/" + classroomId + "/assignments/" + assignmentId + "/speedgrader?studentId=" + studentId;
+        }
+
+        try {
+            assignmentService.gradeStudentInSpeedGrader(classroomId, assignmentId, studentId, userDetails.getId(), score, feedback);
+            redirectAttributes.addFlashAttribute("gradeSuccessMessage", "성적이 성공적으로 반영되었습니다.");
+        } catch (Exception e) {
+            redirectAttributes.addFlashAttribute("gradeErrorMessage", e.getMessage());
+            return "redirect:/classes/" + classroomId + "/assignments/" + assignmentId + "/speedgrader?studentId=" + studentId;
+        }
+
+        if ("saveAndNext".equals(action) && nextStudentId != null) {
+            return "redirect:/classes/" + classroomId + "/assignments/" + assignmentId + "/speedgrader?studentId=" + nextStudentId;
+        }
+
+        return "redirect:/classes/" + classroomId + "/assignments/" + assignmentId + "/speedgrader?studentId=" + studentId;
     }
 }

@@ -29,7 +29,8 @@ public class FileStorageService {
 
     private static final Set<String> ALLOWED_EXTENSIONS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
             "pdf", "ppt", "pptx", "doc", "docx", "xls", "xlsx",
-            "hwp", "hwpx", "zip", "txt", "png", "jpg", "jpeg", "gif", "csv"
+            "hwp", "hwpx", "zip", "txt", "png", "jpg", "jpeg", "gif", "csv",
+            "py", "java", "c", "cpp", "js", "html", "css", "sql", "json", "md"
     )));
 
     public FileStorageService(@Value("${uniclass.upload.location:./uploads}") String uploadDir) {

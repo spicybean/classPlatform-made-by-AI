@@ -2,7 +2,9 @@ package com.uniclass.domain.assignment;
 
 import com.uniclass.domain.assignment.dto.AssignmentResponseDto;
 import com.uniclass.domain.assignment.dto.CreateAssignmentDto;
+import com.uniclass.domain.assignment.dto.SpeedGraderDto;
 import com.uniclass.domain.assignment.dto.SubmitAssignmentDto;
+import com.uniclass.domain.assignment.service.AssignmentService.DownloadResult;
 import com.uniclass.domain.assignment.entity.Assignment;
 import com.uniclass.domain.assignment.entity.Submission;
 import com.uniclass.domain.assignment.entity.SubmissionStatus;
@@ -289,5 +291,115 @@ class AssignmentServiceTest {
         assertThat(graded.getStatus()).isEqualTo(SubmissionStatus.GRADED);
         assertThat(graded.getScore()).isEqualTo(95);
         assertThat(graded.getFeedback()).isEqualTo("훌륭한 풀이입니다!");
+    }
+
+    @Test
+    @DisplayName("교수는 스피드 그레이더 데이터(학생 목록, 제출 상태, 미리보기 타입)를 정확히 조회할 수 있다")
+    void getSpeedGraderData_success() {
+        CreateAssignmentDto createDto = new CreateAssignmentDto();
+        createDto.setTitle("스피드 그레이더 테스트 과제");
+        createDto.setDueDate(LocalDateTime.now().plusDays(3).toString());
+        createDto.setMaxScore(100);
+        Long assignmentId = assignmentService.createAssignment(classRoom.getId(), instructor.getId(), createDto);
+
+        // student는 PDF 파일 제출
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "report.pdf", "application/pdf", "PDF Report Content".getBytes(StandardCharsets.UTF_8)
+        );
+        SubmitAssignmentDto submitDto = new SubmitAssignmentDto();
+        submitDto.setFile(file);
+        submitDto.setNote("스피드 그레이더 제출 메모");
+        assignmentService.submitAssignment(classRoom.getId(), assignmentId, student.getId(), submitDto);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        SpeedGraderDto speedGrader = assignmentService.getSpeedGraderData(classRoom.getId(), assignmentId, instructor.getId(), student.getId());
+
+        assertThat(speedGrader).isNotNull();
+        assertThat(speedGrader.getTotalStudents()).isGreaterThanOrEqualTo(1);
+        assertThat(speedGrader.getSubmittedCount()).isGreaterThanOrEqualTo(1);
+        assertThat(speedGrader.getCurrentStudent()).isNotNull();
+        assertThat(speedGrader.getCurrentStudent().getStudentName()).isEqualTo("김학생");
+        assertThat(speedGrader.getCurrentStudent().getPreviewType()).isEqualTo("pdf");
+        assertThat(speedGrader.getCurrentStudent().getOriginalFilename()).isEqualTo("report.pdf");
+        assertThat(speedGrader.getCurrentStudent().getNote()).isEqualTo("스피드 그레이더 제출 메모");
+    }
+
+    @Test
+    @DisplayName("학생 제출 파일의 인라인 미리보기 리소스를 MIME 타입과 함께 조회할 수 있다")
+    void previewSubmission_success() {
+        CreateAssignmentDto createDto = new CreateAssignmentDto();
+        createDto.setTitle("미리보기 테스트 과제");
+        createDto.setDueDate(LocalDateTime.now().plusDays(3).toString());
+        Long assignmentId = assignmentService.createAssignment(classRoom.getId(), instructor.getId(), createDto);
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "homework.pdf", "application/pdf", "Homework PDF Content".getBytes(StandardCharsets.UTF_8)
+        );
+        SubmitAssignmentDto submitDto = new SubmitAssignmentDto();
+        submitDto.setFile(file);
+        Long subId = assignmentService.submitAssignment(classRoom.getId(), assignmentId, student.getId(), submitDto);
+
+        entityManager.flush();
+        entityManager.clear();
+
+        DownloadResult preview = assignmentService.previewSubmission(classRoom.getId(), assignmentId, subId, instructor.getId(), true);
+
+        assertThat(preview).isNotNull();
+        assertThat(preview.originalFilename()).isEqualTo("homework.pdf");
+        assertThat(preview.contentType()).isEqualTo("application/pdf");
+        assertThat(preview.resource().exists()).isTrue();
+    }
+
+    @Test
+    @DisplayName("스피드 그레이더에서 제출 학생을 채점하고 피드백을 반영할 수 있다")
+    void gradeStudentInSpeedGrader_submittedStudent_success() {
+        CreateAssignmentDto createDto = new CreateAssignmentDto();
+        createDto.setTitle("채점 테스트 과제");
+        createDto.setDueDate(LocalDateTime.now().plusDays(3).toString());
+        createDto.setMaxScore(100);
+        Long assignmentId = assignmentService.createAssignment(classRoom.getId(), instructor.getId(), createDto);
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "code.py", "text/plain", "print('hello')".getBytes(StandardCharsets.UTF_8)
+        );
+        SubmitAssignmentDto submitDto = new SubmitAssignmentDto();
+        submitDto.setFile(file);
+        assignmentService.submitAssignment(classRoom.getId(), assignmentId, student.getId(), submitDto);
+
+        // 스피드 그레이더 채점 수행
+        assignmentService.gradeStudentInSpeedGrader(classRoom.getId(), assignmentId, student.getId(), instructor.getId(), 88, "코드가 깔끔합니다.");
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Submission graded = submissionRepository.findByAssignmentIdAndStudentId(assignmentId, student.getId()).orElseThrow();
+        assertThat(graded.getStatus()).isEqualTo(SubmissionStatus.GRADED);
+        assertThat(graded.getScore()).isEqualTo(88);
+        assertThat(graded.getFeedback()).isEqualTo("코드가 깔끔합니다.");
+    }
+
+    @Test
+    @DisplayName("스피드 그레이더에서 미제출 학생에게도 0점 및 안내 피드백을 기록할 수 있다")
+    void gradeStudentInSpeedGrader_unsubmittedStudent_createsGradedRecord() {
+        CreateAssignmentDto createDto = new CreateAssignmentDto();
+        createDto.setTitle("미제출 채점 테스트 과제");
+        createDto.setDueDate(LocalDateTime.now().plusDays(3).toString());
+        createDto.setMaxScore(100);
+        Long assignmentId = assignmentService.createAssignment(classRoom.getId(), instructor.getId(), createDto);
+
+        // student는 과제를 제출하지 않은 상태에서 교수가 채점 진행
+        assignmentService.gradeStudentInSpeedGrader(classRoom.getId(), assignmentId, student.getId(), instructor.getId(), 0, "기한 내 미제출로 0점 처리되었습니다.");
+
+        entityManager.flush();
+        entityManager.clear();
+
+        Submission graded = submissionRepository.findByAssignmentIdAndStudentId(assignmentId, student.getId()).orElseThrow();
+        assertThat(graded.getStatus()).isEqualTo(SubmissionStatus.GRADED);
+        assertThat(graded.getScore()).isEqualTo(0);
+        assertThat(graded.getFeedback()).isEqualTo("기한 내 미제출로 0점 처리되었습니다.");
+        assertThat(graded.getOriginalFilename()).isEqualTo("미제출 채점");
+        assertThat(graded.getFilePath()).isNull();
     }
 }

@@ -32,14 +32,14 @@ public class Submission {
     @JoinColumn(name = "student_id", nullable = false)
     private User student;
 
-    @Column(name = "file_path", nullable = false, length = 500)
+    @Column(name = "file_path", length = 500)
     private String filePath;
 
-    @Column(name = "original_filename", nullable = false, length = 255)
+    @Column(name = "original_filename", length = 255)
     private String originalFilename;
 
-    @Column(name = "file_size", nullable = false)
-    private long fileSize;
+    @Column(name = "file_size")
+    private long fileSize = 0L;
 
     @Column(length = 1000)
     private String note;

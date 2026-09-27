@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="'스피드 그레이더 - ' + ${assignment.title} + ' | UniClass'">스피드 그레이더 - UniClass</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Speed Grader 전용 커스텀 스크롤바 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col bg-slate-100 font-sans text-slate-800 overflow-hidden">
+
+    <!-- 상단 컨트롤 헤더 -->
+    <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between flex-shrink-0 z-20 shadow-sm">
+        <!-- 좌측: 돌아가기 & 과제명 -->
+        <div class="flex items-center gap-4 min-w-0">
+            <a th:href="@{/classes/{cId}/assignments/{aId}(cId=${classroom.id}, aId=${assignment.id})}"
+               class="p-2 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5 text-sm font-medium"
+               title="과제 상세 화면으로 돌아가기">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span class="hidden sm:inline">과제 상세</span>
+            </a>
+            <div class="h-5 w-px bg-slate-200"></div>
+            <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 text-xs font-semibold bg-indigo-50 text-indigo-700 rounded-md border border-indigo-100 flex items-center gap-1">
+                        <i class="fa-solid fa-bolt text-amber-500"></i> Speed Grader
+                    </span>
+                    <h1 class="text-sm font-bold text-slate-900 truncate" th:text="${assignment.title}">기말 프로젝트 보고서</h1>
+                </div>
+                <p class="text-xs text-slate-500 truncate" th:text="|${classroom.name} (${classroom.semester})|">컴퓨터 네트워크 (2026-1학기)</p>
+            </div>
+        </div>
+
+        <!-- 중앙: 학생 순차 탐색 네비게이터 -->
+        <div class="flex items-center gap-2" th:if="${speedGrader.totalStudents > 0}">
+            <!-- 이전 학생 버튼 -->
+            <a th:if="${speedGrader.prevStudentId != null}"
+               th:href="@{/classes/{cId}/assignments/{aId}/speedgrader(cId=${classroom.id}, aId=${assignment.id}, studentId=${speedGrader.prevStudentId})}"
+               class="p-2 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+               title="이전 학생 (단축키: ←)">
+                <i class="fa-solid fa-chevron-left text-sm"></i>
+            </a>
+            <span th:unless="${speedGrader.prevStudentId != null}"
+                  class="p-2 text-slate-300 border border-slate-100 rounded-lg cursor-not-allowed">
+                <i class="fa-solid fa-chevron-left text-sm"></i>
+            </span>
+
+            <!-- 학생 선택 드롭다운 -->
+            <select id="studentSelect"
+                    onchange="if(this.value) location.href=this.value"
+                    class="bg-slate-50 border border-slate-300 text-slate-800 text-sm rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none max-w-[200px] sm:max-w-xs truncate font-medium">
+                <option th:each="st, iter : ${speedGrader.students}"
+                        th:value="@{/classes/{cId}/assignments/{aId}/speedgrader(cId=${classroom.id}, aId=${assignment.id}, studentId=${st.studentId})}"
+                        th:selected="${currentStudent != null and currentStudent.studentId == st.studentId}">
+                    <span th:text="|${iter.count}. ${st.studentName} (${st.studentNo})|">1. 홍길동 (20260001)</span>
+                    <span th:if="${st.graded}"> [채점완료]</span>
+                    <span th:if="${st.submitted and !st.graded}"> [제출됨]</span>
+                    <span th:if="${!st.submitted}"> [미제출]</span>
+                </option>
+            </select>
+
+            <!-- 다음 학생 버튼 -->
+            <a th:if="${speedGrader.nextStudentId != null}"
+               th:href="@{/classes/{cId}/assignments/{aId}/speedgrader(cId=${classroom.id}, aId=${assignment.id}, studentId=${speedGrader.nextStudentId})}"
+               class="p-2 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+               title="다음 학생 (단축키: →)">
+                <i class="fa-solid fa-chevron-right text-sm"></i>
+            </a>
+            <span th:unless="${speedGrader.nextStudentId != null}"
+                  class="p-2 text-slate-300 border border-slate-100 rounded-lg cursor-not-allowed">
+                <i class="fa-solid fa-chevron-right text-sm"></i>
+            </span>
+        </div>
+
+        <!-- 우측: 채점 진행률 뱃지 -->
+        <div class="flex items-center gap-3">
+            <div class="hidden md:flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600">
+                <i class="fa-solid fa-clipboard-check text-emerald-600"></i>
+                <span>채점 완료: </span>
+                <span class="font-bold text-slate-900" th:text="${speedGrader.gradedCount}">3</span>
+                <span>/</span>
+                <span th:text="${speedGrader.totalStudents}">20</span>
+                <span>명</span>
+            </div>
+            <div class="text-xs text-slate-400 font-mono hidden lg:block" th:if="${speedGrader.totalStudents > 0}">
+                <span th:text="|(${speedGrader.currentIndex} / ${speedGrader.totalStudents})|">(1 / 20)</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 플래시 알림 메시지 -->
+    <div th:if="${gradeSuccessMessage}" class="bg-emerald-600 text-white text-xs px-6 py-2 flex items-center justify-between shadow transition-all">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-circle-check"></i>
+            <span th:text="${gradeSuccessMessage}">성적이 성공적으로 반영되었습니다.</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-emerald-100 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div th:if="${gradeErrorMessage}" class="bg-rose-600 text-white text-xs px-6 py-2 flex items-center justify-between shadow transition-all">
+        <div class="flex items-center gap-2">
+            <i class="fa-solid fa-circle-exclamation"></i>
+            <span th:text="${gradeErrorMessage}">오류가 발생했습니다.</span>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-rose-100 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- 메인 2-Column Split 영역 -->
+    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+
+        <!-- [좌측 패널]: 과제 제출 파일 브라우저 미리보기 뷰어 (70%) -->
+        <section class="flex-1 flex flex-col bg-slate-200 min-w-0 border-r border-slate-300 relative">
+            
+            <!-- 수강생이 없는 경우 -->
+            <div th:if="${currentStudent == null}" class="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
+                <i class="fa-solid fa-user-slash text-5xl mb-4 text-slate-300"></i>
+                <h3 class="text-lg font-bold text-slate-600">수강생이 없습니다</h3>
+                <p class="text-sm mt-1">이 수업에 등록된 수강생이 존재하지 않습니다.</p>
+            </div>
+
+            <!-- 수강생이 있으나 과제 미제출인 경우 -->
+            <div th:if="${currentStudent != null and !currentStudent.submitted}" class="flex-1 flex flex-col items-center justify-center p-8 text-center bg-white m-4 rounded-2xl shadow-sm border border-slate-200">
+                <div class="w-16 h-16 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center text-2xl mb-4 border border-amber-100">
+                    <i class="fa-regular fa-clock"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800" th:text="|${currentStudent.studentName} 학생은 아직 과제를 제출하지 않았습니다|">홍길동 학생은 아직 과제를 제출하지 않았습니다</h3>
+                <p class="text-sm text-slate-500 mt-1">마감 기한 전이거나 미제출 상태입니다. 우측 채점창에서 0점 또는 안내 피드백을 바로 등록할 수 있습니다.</p>
+            </div>
+
+            <!-- 과제가 제출된 경우 -->
+            <div th:if="${currentStudent != null and currentStudent.submitted}" class="flex-1 flex flex-col overflow-hidden">
+                <!-- 뷰어 상단 정보 바 -->
+                <div class="bg-white px-5 py-3 border-b border-slate-200 flex items-center justify-between flex-shrink-0 shadow-xs">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <!-- 파일 아이콘 & 파일명 -->
+                        <i class="fa-solid fa-file-lines text-indigo-600 text-lg"></i>
+                        <div class="min-w-0">
+                            <h2 class="text-sm font-bold text-slate-800 truncate" th:text="${currentStudent.originalFilename}">solution.pdf</h2>
+                            <p class="text-xs text-slate-500" th:text="|제출: ${#temporals.format(currentStudent.submittedAt, 'yyyy-MM-dd HH:mm')}|">제출: 2026-04-10 14:30</p>
+                        </div>
+                        <!-- 제출 상태 뱃지 -->
+                        <span th:if="${currentStudent.status.name() == 'SUBMITTED'}" class="px-2 py-0.5 text-xs font-semibold rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <i class="fa-regular fa-circle-check"></i> 정시 제출
+                        </span>
+                        <span th:if="${currentStudent.status.name() == 'LATE_SUBMITTED'}" class="px-2 py-0.5 text-xs font-semibold rounded-md bg-amber-50 text-amber-700 border border-amber-200">
+                            <i class="fa-solid fa-triangle-exclamation"></i> 지각 제출
+                        </span>
+                        <span th:if="${currentStudent.status.name() == 'GRADED'}" class="px-2 py-0.5 text-xs font-semibold rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            <i class="fa-solid fa-check-double"></i> 채점 완료
+                        </span>
+                    </div>
+
+                    <!-- 원본 파일 다운로드 버튼 -->
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <a th:href="@{/classes/{cId}/assignments/{aId}/submissions/{sId}/download(cId=${classroom.id}, aId=${assignment.id}, sId=${currentStudent.submissionId})}"
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-300 transition-colors shadow-xs"
+                           title="파일 다운로드">
+                            <i class="fa-solid fa-download"></i>
+                            <span class="hidden sm:inline">다운로드</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 학생 제출 메모(Note)가 있는 경우 표시 -->
+                <div th:if="${currentStudent.note != null and !currentStudent.note.isBlank()}"
+                     class="bg-amber-50/80 border-b border-amber-200/60 px-5 py-2.5 flex items-start gap-2.5 text-xs text-amber-900 flex-shrink-0">
+                    <i class="fa-regular fa-comment-dots text-amber-600 mt-0.5 flex-shrink-0"></i>
+                    <div>
+                        <span class="font-bold">학생 코멘트:</span>
+                        <span th:text="${currentStudent.note}">열심히 작성했습니다!</span>
+                    </div>
+                </div>
+
+                <!-- 파일 콘텐츠 뷰어 컨테이너 -->
+                <div class="flex-1 bg-slate-800 relative overflow-hidden flex items-center justify-center">
+                    
+                    <!-- 1) PDF 뷰어 -->
+                    <iframe th:if="${currentStudent.previewType == 'pdf'}"
+                            th:src="@{/classes/{cId}/assignments/{aId}/submissions/{sId}/preview(cId=${classroom.id}, aId=${assignment.id}, sId=${currentStudent.submissionId})}"
+                            class="w-full h-full border-0 bg-white"
+                            title="PDF 과제 미리보기"></iframe>
+
+                    <!-- 2) 이미지 뷰어 -->
+                    <div th:if="${currentStudent.previewType == 'image'}"
+                         class="w-full h-full overflow-auto flex items-center justify-center p-6 bg-slate-900/60">
+                        <img th:src="@{/classes/{cId}/assignments/{aId}/submissions/{sId}/preview(cId=${classroom.id}, aId=${assignment.id}, sId=${currentStudent.submissionId})}"
+                             class="max-w-full max-h-full object-contain rounded-lg shadow-2xl border border-slate-700"
+                             alt="과제 이미지 미리보기">
+                    </div>
+
+                    <!-- 3) 텍스트/코드 뷰어 -->
+                    <iframe th:if="${currentStudent.previewType == 'text'}"
+                            th:src="@{/classes/{cId}/assignments/{aId}/submissions/{sId}/preview(cId=${classroom.id}, aId=${assignment.id}, sId=${currentStudent.submissionId})}"
+                            class="w-full h-full border-0 bg-slate-900 text-slate-100 font-mono text-sm p-4"
+                            title="텍스트 코드 미리보기"></iframe>
+
+                    <!-- 4) 기타 파일 형식 (ZIP, DOCX, HWP 등 다운로드 안내) -->
+                    <div th:if="${currentStudent.previewType == 'other'}"
+                         class="bg-white p-8 rounded-2xl shadow-lg border border-slate-200 text-center max-w-md mx-4">
+                        <div class="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-3xl mx-auto mb-4 border border-indigo-100">
+                            <i class="fa-solid fa-file-zipper"></i>
+                        </div>
+                        <h4 class="text-base font-bold text-slate-900 mb-1" th:text="${currentStudent.originalFilename}">archive.zip</h4>
+                        <p class="text-xs text-slate-500 mb-5">브라우저 즉시 미리보기를 지원하지 않는 형식입니다. 파일을 로컬에 다운로드하여 확인하세요.</p>
+                        <a th:href="@{/classes/{cId}/assignments/{aId}/submissions/{sId}/download(cId=${classroom.id}, aId=${assignment.id}, sId=${currentStudent.submissionId})}"
+                           class="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-all shadow-md">
+                            <i class="fa-solid fa-cloud-arrow-down"></i> 파일 다운로드
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- [우측 패널]: 채점, 루브릭 및 피드백 폼 (30%) -->
+        <aside class="w-full lg:w-96 bg-white flex flex-col flex-shrink-0 h-full overflow-y-auto border-t lg:border-t-0 border-slate-200 shadow-lg z-10">
+            
+            <div th:if="${currentStudent != null}" class="p-6 flex flex-col h-full justify-between">
+                <div>
+                    <!-- 학생 정보 프로필 카드 -->
+                    <div class="flex items-center gap-3.5 pb-5 border-b border-slate-200">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+                            <span th:text="${#strings.substring(currentStudent.studentName, 0, 1)}">홍</span>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-base font-bold text-slate-900 truncate" th:text="${currentStudent.studentName}">홍길동</h3>
+                                <span th:if="${currentStudent.status != null and currentStudent.status.name() == 'GRADED'}" class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">채점됨</span>
+                                <span th:if="${currentStudent.status != null and currentStudent.status.name() != 'GRADED'}" class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">미채점</span>
+                                <span th:if="${currentStudent.status == null}" class="text-xs font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">미제출</span>
+                            </div>
+                            <p class="text-xs text-slate-500 font-mono" th:text="|학번: ${currentStudent.studentNo}|">학번: 20260001</p>
+                            <p class="text-xs text-slate-400 truncate" th:text="${currentStudent.email}">student@univ.ac.kr</p>
+                        </div>
+                    </div>
+
+                    <!-- 채점 폼 시작 -->
+                    <form id="gradeForm" method="post" th:action="@{/classes/{cId}/assignments/{aId}/speedgrader/grade(cId=${classroom.id}, aId=${assignment.id})}" class="mt-6 space-y-6">
+                        <input type="hidden" name="studentId" th:value="${currentStudent.studentId}">
+                        <input type="hidden" name="nextStudentId" th:value="${speedGrader.nextStudentId}">
+                        <input type="hidden" id="actionInput" name="action" value="save">
+
+                        <!-- 점수 입력 섹션 -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label for="scoreInput" class="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                    점수 평가 <span class="text-rose-500">*</span>
+                                </label>
+                                <span class="text-xs font-semibold text-slate-500" th:text="|만점: ${assignment.maxScore}점|">만점: 100점</span>
+                            </div>
+
+                            <div class="relative flex items-center">
+                                <input type="number"
+                                       id="scoreInput"
+                                       name="score"
+                                       min="0"
+                                       th:max="${assignment.maxScore}"
+                                       th:value="${currentStudent.score != null ? currentStudent.score : ''}"
+                                       required
+                                       placeholder="점수 입력"
+                                       class="w-full pl-4 pr-16 py-3 bg-slate-50 border border-slate-300 rounded-xl text-lg font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition-all">
+                                <span class="absolute right-4 text-sm font-semibold text-slate-400" th:text="|/ ${assignment.maxScore}점|">/ 100점</span>
+                            </div>
+
+                            <!-- 빠른 점수 프리셋 (루브릭 퀵 버튼) -->
+                            <div class="flex items-center gap-1.5 mt-2">
+                                <button type="button" onclick="setPresetScore(1.0)" class="flex-1 py-1 text-xs font-semibold bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-md border border-slate-200 transition-colors">100%</button>
+                                <button type="button" onclick="setPresetScore(0.9)" class="flex-1 py-1 text-xs font-semibold bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-md border border-slate-200 transition-colors">90%</button>
+                                <button type="button" onclick="setPresetScore(0.8)" class="flex-1 py-1 text-xs font-semibold bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-md border border-slate-200 transition-colors">80%</button>
+                                <button type="button" onclick="setPresetScore(0.7)" class="flex-1 py-1 text-xs font-semibold bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-md border border-slate-200 transition-colors">70%</button>
+                                <button type="button" onclick="setPresetScore(0.0)" class="flex-1 py-1 text-xs font-semibold bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-md border border-slate-200 transition-colors">0점</button>
+                            </div>
+                        </div>
+
+                        <!-- 피드백 코멘트 섹션 -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label for="feedbackInput" class="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                    교수 피드백 코멘트
+                                </label>
+                                <span class="text-xs text-slate-400">학생에게 즉시 공개됨</span>
+                            </div>
+                            <textarea id="feedbackInput"
+                                      name="feedback"
+                                      rows="6"
+                                      placeholder="제출물에 대한 구체적인 피드백이나 개선점, 격려의 말을 작성해 주세요..."
+                                      th:text="${currentStudent.feedback}"
+                                      class="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-sm text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition-all resize-none"></textarea>
+                            
+                            <!-- 퀵 피드백 템플릿 상용구 버튼 -->
+                            <div class="flex flex-wrap gap-1 mt-2">
+                                <button type="button" onclick="appendFeedback('과제 요구사항을 완벽히 충족하였습니다. 훌륭합니다!')" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-0.5 rounded transition-colors">+ 완벽 충족</button>
+                                <button type="button" onclick="appendFeedback('코드 구현은 훌륭하나 주석 및 문서화가 다소 부족합니다.')" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-0.5 rounded transition-colors">+ 문서화 보완</button>
+                                <button type="button" onclick="appendFeedback('제출 기한을 준수해 주시기 바랍니다.')" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-0.5 rounded transition-colors">+ 기한 준수</button>
+                            </div>
+                        </div>
+
+                        <!-- 채점 액션 버튼 그룹 -->
+                        <div class="pt-4 space-y-2 border-t border-slate-100">
+                            <!-- 저장 후 다음 학생으로 이동 (주요 액션) -->
+                            <button type="button"
+                                    onclick="submitWithAction('saveAndNext')"
+                                    class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-floppy-disk"></i>
+                                <span>저장 후 다음 학생</span>
+                                <i class="fa-solid fa-arrow-right text-xs"></i>
+                            </button>
+
+                            <!-- 현재 학생 점수만 저장 -->
+                            <button type="button"
+                                    onclick="submitWithAction('save')"
+                                    class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-semibold text-xs rounded-xl transition-all flex items-center justify-center gap-2">
+                                <span>현재 학생만 저장</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- 하단 단축키 가이드 -->
+                <div class="mt-6 pt-4 border-t border-slate-100 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>단축키: <kbd class="px-1 py-0.5 bg-slate-100 border border-slate-300 rounded text-[10px]">Ctrl</kbd> + <kbd class="px-1 py-0.5 bg-slate-100 border border-slate-300 rounded text-[10px]">Enter</kbd> (저장 후 다음)</span>
+                    <i class="fa-solid fa-keyboard text-slate-300"></i>
+                </div>
+            </div>
+
+            <!-- 학생 목록이 전혀 없는 경우 -->
+            <div th:unless="${currentStudent != null}" class="p-8 text-center text-slate-400 my-auto">
+                <i class="fa-solid fa-user-xmark text-4xl mb-3 text-slate-300"></i>
+                <p class="text-sm font-medium">선택된 학생이 없습니다.</p>
+            </div>
+        </aside>
+    </main>
+
+    <!-- 스크립트: 프리셋 입력, 폼 제출 및 키보드 단축키 지원 -->
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const maxScore = /*[[${assignment.maxScore}]]*/ 100;
+
+        function setPresetScore(ratio) {
+            const scoreInput = document.getElementById('scoreInput');
+            if (scoreInput) {
+                scoreInput.value = Math.round(maxScore * ratio);
+                scoreInput.focus();
+            }
+        }
+
+        function appendFeedback(text) {
+            const feedbackInput = document.getElementById('feedbackInput');
+            if (feedbackInput) {
+                if (feedbackInput.value.trim() !== '') {
+                    feedbackInput.value += ' ' + text;
+                } else {
+                    feedbackInput.value = text;
+                }
+                feedbackInput.focus();
+            }
+        }
+
+        function submitWithAction(actionName) {
+            const form = document.getElementById('gradeForm');
+            const actionInput = document.getElementById('actionInput');
+            if (form && actionInput) {
+                actionInput.value = actionName;
+                form.submit();
+            }
+        }
+
+        // 키보드 단축키: Ctrl + Enter 누르면 즉시 "저장 후 다음 학생"
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                submitWithAction('saveAndNext');
+            }
+        });
+        /*]]>*/
+    </script>
+</body>
+</html>

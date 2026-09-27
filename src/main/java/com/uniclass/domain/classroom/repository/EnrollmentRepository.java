@@ -23,4 +23,9 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
                                                           @Param("status") EnrollmentStatus status);
 
     long countByClassroomIdAndStatus(Long classroomId, EnrollmentStatus status);
+
+    @Query("SELECT e FROM Enrollment e JOIN FETCH e.student " +
+           "WHERE e.classroom.id = :classroomId AND e.status = :status ORDER BY e.student.name ASC")
+    List<Enrollment> findByClassroomIdAndStatusWithStudent(@Param("classroomId") Long classroomId,
+                                                          @Param("status") EnrollmentStatus status);
 }

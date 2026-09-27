@@ -175,9 +175,32 @@
     * `AssignmentServiceTest`: 8대 시나리오 단위/통합 테스트 100% 통과.
     * `test_assignment_flow.py`: 교수 출제 ➡️ 학생 제출 ➡️ 교수 채점 ➡️ 학생 피드백 확인 풀플로우 통과.
 
+* **Phase 2 - 6단계: 스피드 그레이더 (Speed Grader) 구현 완료**:
+  * `AssignmentController` & `AssignmentService`:
+    * 웹 브라우저 인라인 미리보기 스트리밍 (`GET /classes/{cId}/assignments/{aId}/submissions/{sId}/preview`).
+    * PDF, 이미지(PNG/JPG/WEBP), 텍스트/소스코드(PY/JAVA/C/MD) 등 파일 형식별 동적 MIME 분석 및 인라인 렌더링.
+    * 스피드 그레이더 전용 데이터셋 공급 (`getSpeedGraderData`): 전체 수강생 대상 제출/미제출/채점완료 상태 집계 및 이전/다음 학생 순차 포인터 계산.
+    * 미제출 학생 채점 지원 (`gradeStudentInSpeedGrader`): 과제 미제출 학생에게도 0점 및 지도 피드백 부여 가능.
+    * 빠른 채점 워크플로우: 점수/피드백 저장 후 다음 학생 자동 전환 (`saveAndNext`, `Ctrl+Enter` 단축키 지원).
+  * `templates/assignment/speedgrader.html`:
+    * 좌측 70% 인라인 문서 뷰어 + 우측 30% 학생 프로필 & 루브릭 퀵 버튼(100%, 90%, 80%, 70%, 0점) & 피드백 상용구 템플릿.
+    * 상단 학생 선택 드롭다운 및 이전/다음 순차 네비게이터, 채점 진행률 뱃지.
+  * `FileStorageService`: 컴퓨터공학 등 코딩 과제 지원을 위해 `.py`, `.java`, `.c`, `.cpp`, `.js`, `.html`, `.css`, `.sql`, `.json`, `.md` 소스 파일 확장자 안전 허용.
+  * `Claude AI 리뷰 5대 결함 자가 치유(Self-Healing) 완료`:
+    * `@PreAuthorize("isAuthenticated()")` 적용 및 비인증 NPE 차단.
+    * Content-Type 헤더 조작 방어 안전 MIME 파싱.
+    * `speedGraderPage` 담당 교수 null 안전 가드.
+    * 미제출 채점물 다운로드/미리보기 시 파일 경로 null 방어.
+    * 점수 음수 입력 방어 유효성 검증.
+  * 테스트 검증:
+    * `AssignmentServiceTest`: 스피드 그레이더 데이터 조회, 인라인 리소스 스트리밍, 제출/미제출 학생 채점 등 18개 테스트 ALL PASS.
+    * `test_speedgrader_flow.py`: 교수/학생2명 가입 ➡️ 수업 개설 ➡️ 과제 출제 ➡️ PDF 제출 ➡️ 스피드 그레이더 인라인 미리보기 ➡️ 채점 및 다음 학생 자동 전환 ➡️ 미제출 학생 채점 ➡️ 학생 피드백 확인 전과정 100% 통과.
+
 #### 2. 다음 진행 계획 (Next Steps)
-* Claude 코드 리뷰 요청 및 피드백 점검 (`scripts/claude_review_cli.py` / `CodeReview/Week_01.md`)
-* Phase 2: 수업 운영 편의성 강화 (Speed Grader & 루브릭 채점 모듈) 준비
+* Phase 2 - 7단계: 실시간 4자리 간편 출석 체크 (Attendance) 구현
+  * `AttendanceSession`, `AttendanceRecord` 엔티티 설계
+  * 교수용 3분 유효 4자리 랜덤 숫자 팝업 생성 및 실시간 집계
+  * 학생용 모바일/PC 간편 번호 입력 폼 및 출석/지각 판정
 
 
 

@@ -19,13 +19,18 @@ import com.uniclass.domain.user.entity.User;
 import com.uniclass.domain.user.repository.UserRepository;
 import com.uniclass.global.storage.FileStorageService;
 import com.uniclass.global.storage.FileStorageService.StoredFile;
+import com.uniclass.domain.assignment.dto.SpeedGraderDto;
+import com.uniclass.domain.assignment.dto.SpeedGraderStudentItemDto;
+import com.uniclass.domain.classroom.entity.Enrollment;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -284,6 +289,10 @@ public class AssignmentService {
             throw new IllegalArgumentException("제출자 본인 또는 수업 담당 교수만 다운로드할 수 있습니다.");
         }
 
+        if (submission.getFilePath() == null) {
+            throw new IllegalArgumentException("제출된 파일이 존재하지 않습니다.");
+        }
+
         Resource resource = fileStorageService.loadAsResource(submission.getFilePath());
         return new DownloadResult(resource, submission.getOriginalFilename(), "application/octet-stream");
     }
@@ -337,6 +346,218 @@ public class AssignmentService {
         }
 
         submission.grade(score, feedback != null ? feedback.trim() : null);
+    }
+
+    /**
+     * 학생 제출 파일 미리보기 (브라우저 인라인 렌더링용)
+     */
+    public DownloadResult previewSubmission(Long classroomId, Long assignmentId, Long submissionId, Long currentUserId, boolean isInstructor) {
+        Submission submission = submissionRepository.findByIdWithAssignmentAndClassroom(submissionId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 제출물을 찾을 수 없습니다: " + submissionId));
+
+        if (!submission.getAssignment().getId().equals(assignmentId) ||
+            !submission.getAssignment().getClassroom().getId().equals(classroomId)) {
+            throw new IllegalArgumentException("해당 과제에 속한 제출 파일이 아닙니다.");
+        }
+
+        boolean isSubmitter = submission.getStudent().getId().equals(currentUserId);
+        boolean isClassInstructor = submission.getAssignment().getClassroom().getInstructor().getId().equals(currentUserId);
+
+        if (!isSubmitter && !isClassInstructor) {
+            throw new IllegalArgumentException("제출자 본인 또는 수업 담당 교수만 열람할 수 있습니다.");
+        }
+
+        if (submission.getFilePath() == null) {
+            throw new IllegalArgumentException("제출된 파일이 존재하지 않습니다.");
+        }
+
+        Resource resource = fileStorageService.loadAsResource(submission.getFilePath());
+        String contentType = determineContentType(submission.getOriginalFilename());
+        return new DownloadResult(resource, submission.getOriginalFilename(), contentType);
+    }
+
+    /**
+     * 스피드 그레이더 데이터 조회 (교수 전용)
+     */
+    public SpeedGraderDto getSpeedGraderData(Long classroomId, Long assignmentId, Long instructorId, Long targetStudentId) {
+        Assignment assignment = assignmentRepository.findByIdWithClassroomAndInstructor(assignmentId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 과제를 찾을 수 없습니다: " + assignmentId));
+
+        if (!assignment.getClassroom().getId().equals(classroomId)) {
+            throw new IllegalArgumentException("해당 수업에 속한 과제가 아닙니다.");
+        }
+
+        if (!assignment.getClassroom().getInstructor().getId().equals(instructorId)) {
+            throw new IllegalArgumentException("수업 담당 교수만 스피드 그레이더를 이용할 수 있습니다.");
+        }
+
+        List<Enrollment> enrollments = enrollmentRepository.findByClassroomIdAndStatusWithStudent(classroomId, EnrollmentStatus.ENROLLED);
+        List<Submission> submissions = submissionRepository.findByAssignmentIdWithStudent(assignmentId);
+
+        Map<Long, Submission> submissionMap = submissions.stream()
+                .collect(Collectors.toMap(s -> s.getStudent().getId(), s -> s));
+
+        int gradedCount = 0;
+        int submittedCount = 0;
+        List<SpeedGraderStudentItemDto> studentItems = new ArrayList<>();
+
+        for (Enrollment e : enrollments) {
+            User student = e.getStudent();
+            Submission sub = submissionMap.get(student.getId());
+
+            String previewType = "none";
+            if (sub != null) {
+                submittedCount++;
+                if (sub.getStatus() == SubmissionStatus.GRADED) {
+                    gradedCount++;
+                }
+                previewType = determinePreviewType(sub.getOriginalFilename());
+            }
+
+            studentItems.add(SpeedGraderStudentItemDto.builder()
+                    .studentId(student.getId())
+                    .studentName(student.getName())
+                    .studentNo(student.getStudentNo())
+                    .email(student.getEmail())
+                    .submissionId(sub != null ? sub.getId() : null)
+                    .status(sub != null ? sub.getStatus() : null)
+                    .score(sub != null ? sub.getScore() : null)
+                    .feedback(sub != null ? sub.getFeedback() : null)
+                    .originalFilename(sub != null ? sub.getOriginalFilename() : null)
+                    .fileSize(sub != null ? sub.getFileSize() : null)
+                    .note(sub != null ? sub.getNote() : null)
+                    .submittedAt(sub != null ? sub.getSubmittedAt() : null)
+                    .previewType(previewType)
+                    .build());
+        }
+
+        SpeedGraderStudentItemDto currentStudent = null;
+        int currentIndex = 0;
+        Long prevStudentId = null;
+        Long nextStudentId = null;
+
+        if (!studentItems.isEmpty()) {
+            if (targetStudentId != null) {
+                for (int i = 0; i < studentItems.size(); i++) {
+                    if (studentItems.get(i).getStudentId().equals(targetStudentId)) {
+                        currentIndex = i;
+                        currentStudent = studentItems.get(i);
+                        break;
+                    }
+                }
+            }
+            if (currentStudent == null) {
+                currentStudent = studentItems.get(0);
+                currentIndex = 0;
+            }
+
+            if (currentIndex > 0) {
+                prevStudentId = studentItems.get(currentIndex - 1).getStudentId();
+            }
+            if (currentIndex < studentItems.size() - 1) {
+                nextStudentId = studentItems.get(currentIndex + 1).getStudentId();
+            }
+        }
+
+        AssignmentResponseDto assignmentDto = AssignmentResponseDto.from(
+                assignment,
+                submissions.size(),
+                enrollments.size(),
+                null
+        );
+
+        return SpeedGraderDto.builder()
+                .assignment(assignmentDto)
+                .students(studentItems)
+                .currentStudent(currentStudent)
+                .prevStudentId(prevStudentId)
+                .nextStudentId(nextStudentId)
+                .currentIndex(studentItems.isEmpty() ? 0 : currentIndex + 1)
+                .totalStudents(studentItems.size())
+                .gradedCount(gradedCount)
+                .submittedCount(submittedCount)
+                .build();
+    }
+
+    /**
+     * 스피드 그레이더 학생 채점 (제출/미제출 모두 대응)
+     */
+    @Transactional
+    public void gradeStudentInSpeedGrader(Long classroomId, Long assignmentId, Long studentId, Long instructorId, int score, String feedback) {
+        Assignment assignment = assignmentRepository.findByIdWithClassroomAndInstructor(assignmentId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 과제를 찾을 수 없습니다: " + assignmentId));
+
+        if (!assignment.getClassroom().getId().equals(classroomId)) {
+            throw new IllegalArgumentException("해당 수업에 속한 과제가 아닙니다.");
+        }
+
+        if (!assignment.getClassroom().getInstructor().getId().equals(instructorId)) {
+            throw new IllegalArgumentException("수업 담당 교수만 채점할 수 있습니다.");
+        }
+
+        boolean isEnrolled = enrollmentRepository.existsByStudentIdAndClassroomIdAndStatus(studentId, classroomId, EnrollmentStatus.ENROLLED);
+        if (!isEnrolled) {
+            throw new IllegalArgumentException("해당 수업의 수강생이 아닙니다.");
+        }
+
+        int maxScore = assignment.getMaxScore();
+        if (score < 0 || score > maxScore) {
+            throw new IllegalArgumentException("점수는 0점 이상 " + maxScore + "점 이하여야 합니다.");
+        }
+
+        Optional<Submission> submissionOpt = submissionRepository.findByAssignmentIdAndStudentId(assignmentId, studentId);
+        if (submissionOpt.isPresent()) {
+            submissionOpt.get().grade(score, feedback != null ? feedback.trim() : null);
+        } else {
+            User student = userRepository.findById(studentId)
+                    .orElseThrow(() -> new IllegalArgumentException("학생 정보를 찾을 수 없습니다: " + studentId));
+            Submission unsubmittedGraded = Submission.builder()
+                    .assignment(assignment)
+                    .student(student)
+                    .filePath(null)
+                    .originalFilename("미제출 채점")
+                    .fileSize(0L)
+                    .note(null)
+                    .status(SubmissionStatus.GRADED)
+                    .build();
+            unsubmittedGraded.grade(score, feedback != null ? feedback.trim() : null);
+            submissionRepository.save(unsubmittedGraded);
+        }
+    }
+
+    public static String determineContentType(String filename) {
+        if (filename == null) return "application/octet-stream";
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".pdf")) return "application/pdf";
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".gif")) return "image/gif";
+        if (lower.endsWith(".webp")) return "image/webp";
+        if (lower.endsWith(".svg")) return "image/svg+xml";
+        if (lower.endsWith(".txt") || lower.endsWith(".md") || lower.endsWith(".json") ||
+            lower.endsWith(".java") || lower.endsWith(".py") || lower.endsWith(".c") ||
+            lower.endsWith(".cpp") || lower.endsWith(".html") || lower.endsWith(".css") ||
+            lower.endsWith(".js") || lower.endsWith(".sql")) {
+            return "text/plain; charset=UTF-8";
+        }
+        return "application/octet-stream";
+    }
+
+    public static String determinePreviewType(String filename) {
+        if (filename == null) return "none";
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".pdf")) return "pdf";
+        if (lower.endsWith(".png") || lower.endsWith(".jpg") || lower.endsWith(".jpeg") ||
+            lower.endsWith(".gif") || lower.endsWith(".webp") || lower.endsWith(".svg")) {
+            return "image";
+        }
+        if (lower.endsWith(".txt") || lower.endsWith(".md") || lower.endsWith(".json") ||
+            lower.endsWith(".java") || lower.endsWith(".py") || lower.endsWith(".c") ||
+            lower.endsWith(".cpp") || lower.endsWith(".html") || lower.endsWith(".css") ||
+            lower.endsWith(".js") || lower.endsWith(".sql")) {
+            return "text";
+        }
+        return "other";
     }
 
     public record DownloadResult(
