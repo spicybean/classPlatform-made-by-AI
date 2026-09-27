@@ -18,9 +18,11 @@ import com.uniclass.domain.material.dto.CreateMaterialDto;
 import com.uniclass.domain.material.dto.WeekSectionDto;
 import com.uniclass.domain.material.service.MaterialService;
 
-import java.util.List;
-
+import com.uniclass.domain.assignment.dto.AssignmentResponseDto;
+import com.uniclass.domain.assignment.service.AssignmentService;
 import org.springframework.beans.factory.annotation.Value;
+
+import java.util.List;
 
 @Controller
 @RequestMapping("/classes")
@@ -28,13 +30,16 @@ public class ClassRoomController {
 
     private final ClassRoomService classRoomService;
     private final MaterialService materialService;
+    private final AssignmentService assignmentService;
     private final String currentSemester;
 
     public ClassRoomController(ClassRoomService classRoomService,
                                MaterialService materialService,
+                               AssignmentService assignmentService,
                                @Value("${uniclass.current-semester:2026-1학기}") String currentSemester) {
         this.classRoomService = classRoomService;
         this.materialService = materialService;
+        this.assignmentService = assignmentService;
         this.currentSemester = currentSemester;
     }
 
@@ -116,6 +121,9 @@ public class ClassRoomController {
 
         List<WeekSectionDto> weeks = materialService.getWeeksWithMaterials(id, userDetails.getId(), isInstructor);
         model.addAttribute("weeks", weeks);
+
+        List<AssignmentResponseDto> assignments = assignmentService.getAssignmentsForClassroom(id, userDetails.getId(), isInstructor);
+        model.addAttribute("assignments", assignments);
 
         CreateMaterialDto materialForm = new CreateMaterialDto();
         model.addAttribute("materialForm", materialForm);

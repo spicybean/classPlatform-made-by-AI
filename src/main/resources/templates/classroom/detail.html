@@ -241,19 +241,49 @@
                 </div>
             </div>
 
-            <!-- 2. 과제 및 채점 (Phase 1 - 5단계 타겟) -->
-            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-3">
+            <!-- 2. 과제 및 채점 (Phase 1 - 5단계 구현) -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-4">
                 <div class="flex justify-between items-center">
                     <h3 class="font-bold text-slate-900 text-base flex items-center gap-1.5">
-                        ✍️ <span>과제 및 채점</span>
+                        ✍️ <span>과제 및 제출</span>
                     </h3>
-                    <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-bold border border-emerald-100">5단계 예정</span>
+                    <a th:if="${isInstructor}" th:href="@{'/classes/' + ${classroom.id} + '/assignments/new'}"
+                       class="text-[11px] px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-2xs transition">
+                        + 과제 출제
+                    </a>
+                    <span th:unless="${isInstructor}" class="text-[11px] font-bold text-slate-500"
+                          th:text="'총 ' + ${assignments != null ? #lists.size(assignments) : 0} + '개'">총 0개</span>
                 </div>
-                <p class="text-xs text-slate-500 leading-relaxed">
-                    마감일, 배점, 지각 허용 기준에 맞춰 과제를 출제하고 제출물을 관리합니다.
-                </p>
-                <div class="p-3.5 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                    과제 관리 모듈 연결 대기 중
+
+                <!-- 과제 목록 -->
+                <div th:if="${#lists.isEmpty(assignments)}" class="p-4 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                    등록된 과제가 없습니다.
+                </div>
+
+                <div th:unless="${#lists.isEmpty(assignments)}" class="space-y-2.5">
+                    <a th:each="a : ${assignments}"
+                       th:href="@{'/classes/' + ${classroom.id} + '/assignments/' + ${a.id}}"
+                       class="block p-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 transition group">
+                        <div class="flex justify-between items-start gap-2">
+                            <span class="font-bold text-xs text-slate-800 group-hover:text-blue-600 transition line-clamp-1"
+                                  th:text="${a.title}">과제 제목</span>
+                            <span class="text-[10px] font-extrabold whitespace-nowrap px-1.5 py-0.5 rounded"
+                                  th:classappend="${a.isExpired ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}"
+                                  th:text="${a.dDayString}">D-3</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-2 text-[11px]">
+                            <span class="text-slate-400 font-mono" th:text="${a.formattedDueDate}">2026-04-10 23:59</span>
+                            <!-- 교수 시점: 제출 인원수 -->
+                            <span th:if="${isInstructor}" class="font-bold text-slate-600">
+                                <span class="text-blue-600" th:text="${a.totalSubmissions}">0</span>/<span th:text="${a.totalEnrolledStudents}">0</span>명 제출
+                            </span>
+                            <!-- 학생 시점: 내 제출 상태 -->
+                            <div th:unless="${isInstructor}">
+                                <span th:if="${a.isSubmitted}" class="font-bold text-emerald-600">✓ 제출완료</span>
+                                <span th:unless="${a.isSubmitted}" class="font-bold text-rose-500">미제출</span>
+                            </div>
+                        </div>
+                    </a>
                 </div>
             </div>
 

@@ -155,8 +155,29 @@
   * `User` & `ClassRoom`: 엔티티 boolean 필드명(`active`, `archived`) 롬복 표준화.
   * 테스트 스크립트 검증: `test_security_audit.py`를 통해 비인가 학생의 타 수업 접근 시 302 차단 완벽 검증.
 
+* **Phase 1 - 5단계: 과제 출제 및 제출 시스템 (Assignments & Submissions) 구현 완료**:
+  * `Assignment` & `Submission` 엔티티 및 `SubmissionStatus` 설계 완료 (JPA 복합 유니크 제약 `uk_submission_assignment_student`로 1인 1제출 무결성 보장).
+  * `AssignmentService`:
+    * 과제 출제 (주차 연동, 배점, 지각 허용 여부, 교수 양식 첨부파일 저장).
+    * 과제 제출 및 재제출 (마감일시 초과 시 지각 자동 판정, 재제출 시 기존 물리 파일 삭제 및 교체, 고아 파일 방어).
+    * 제출 파일 및 첨부파일 권한 기반 다운로드.
+    * 교수 전용 채점 및 맞춤형 피드백 등록 로직 구현.
+  * `AssignmentController`:
+    * 교수용 과제 출제 페이지 (`GET /classes/{id}/assignments/new`, `POST /classes/{id}/assignments`).
+    * 과제 상세 및 학생 제출 현황 페이지 (`GET /classes/{id}/assignments/{assignmentId}`).
+    * 학생용 과제 제출/재제출 (`POST /classes/{id}/assignments/{assignmentId}/submit`).
+    * 채점 처리 (`POST /classes/{id}/assignments/{assignmentId}/submissions/{submissionId}/grade`).
+  * `templates/assignment/create.html` & `templates/assignment/detail.html`:
+    * 교수/학생 역할별 분기 UI, 마감 기한 D-Day 뱃지, 실시간 제출 현황 일람표, 즉시 채점 모달.
+  * `classroom/detail.html`:
+    * 우측 사이드바에 실제 과제 목록 및 `+ 과제 출제` 버튼 동적 연동 완료.
+  * 테스트 검증:
+    * `AssignmentServiceTest`: 8대 시나리오 단위/통합 테스트 100% 통과.
+    * `test_assignment_flow.py`: 교수 출제 ➡️ 학생 제출 ➡️ 교수 채점 ➡️ 학생 피드백 확인 풀플로우 통과.
+
 #### 2. 다음 진행 계획 (Next Steps)
-* Phase 1 - 5단계: 과제 출제 및 제출 시스템 (Assignments & Submissions) 개발 착수
+* Claude 코드 리뷰 요청 및 피드백 점검 (`scripts/claude_review_cli.py` / `CodeReview/Week_01.md`)
+* Phase 2: 수업 운영 편의성 강화 (Speed Grader & 루브릭 채점 모듈) 준비
 
 
 

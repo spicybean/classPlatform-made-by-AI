@@ -1124,5 +1124,108 @@ if ("instructor_cannot_join".equals(error)) {
 | **엔티티 표준화** | ✅ 완벽 | `User.active`, `ClassRoom.archived` 롬복 게터 정합성 확보 |
 | **전체 테스트 검증** | ✅ 통과 | Gradle 4개 태스크, 보안 감사, 풀플로우, 멀티파트 업로드 ALL PASS |
 
+---
+
+## 📅 2026-09-27 (일) - 8차 과제 출제 및 제출 시스템(Phase 1-5) 코드 리뷰
+
+---
+
+### 📁 1. `Assignment.java` & `Submission.java` — 도메인 엔티티 및 제약조건 설계
+
+```java
+@Entity
+@Table(name = "assignments")
+public class Assignment extends BaseTimeEntity {
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "classroom_id", nullable = false)
+    private ClassRoom classroom;
+
+    @Column(nullable = false)
+    private LocalDateTime dueDate;
+
+    @Column(nullable = false)
+    private int maxScore = 100;
+
+    @Column(nullable = false)
+    private boolean allowLate = false;
+    ...
+}
+
+@Entity
+@Table(name = "submissions", uniqueConstraints = {
+    @UniqueConstraint(name = "uk_submission_assignment_student", columnNames = {"assignment_id", "student_id"})
+})
+public class Submission extends BaseTimeEntity { ... }
+```
+
+#### ✅ 분석 및 잘된 점
+* **복합 유니크 제약조건 (`uk_submission_assignment_student`)**: 학생 1명이 동일 과제에 대해 여러 제출 레코드를 중복 생성하지 못하도록 DB 레벨에서 무결성을 보장.
+* **지연 로딩 및 정합성 보장**: `@ManyToOne(fetch = FetchType.LAZY)` 적용으로 N+1 쿼리 최적화 기반 마련.
+* **D-Day 동적 계산**: `getFormattedDDay()` 및 `isExpired()` 도메인 편의 메서드를 엔티티 내에 응집하여 뷰 렌더링 간결화.
+
+---
+
+### 📁 2. `AssignmentService.java` — 재제출 시 물리 파일 정리 및 엄격한 인가 검증
+
+```java
+// 재제출 처리: 기존 첨부파일 안전 삭제 및 메타데이터 갱신
+if (submission != null) {
+    String oldFilePath = submission.getStoredFilePath();
+    submission.updateSubmission(dto.getContent(), originalFilename, storedFilename, relativePath, fileSize, isLate);
+    if (oldFilePath != null && newFileUploaded) {
+        fileStorageService.deleteFile(oldFilePath);
+    }
+}
+```
+
+#### 🚨 Claude 리뷰 지적 및 Self-Healing 적용
+* **보안 (수업 인가 누락 방지)**: `getAssignmentsForClassroom` 조회 시에도 수업 소속 여부(담당 교수 또는 수강생)를 2차 방어 검증하여 외부 미수강생의 과제 목록 열람 원천 차단.
+* **IDOR (Insecure Direct Object Reference) 방어**: 채점 시 `submission.getAssignment().getId().equals(assignmentId)` 및 `assignment.getClassroom().getId().equals(classroomId)`를 교차 검증하여 다른 수업/과제의 제출물을 변조하는 요청 차단.
+* **물리 파일 고아(Orphan) 방지**: 재제출 시 신규 파일 저장이 완료되고 DB 엔티티가 갱신된 이후에만 기존 물리 파일을 안전하게 삭제하도록 트랜잭션 흐름 최적화.
+
+---
+
+### 📁 3. `classroom/detail.html` & `assignment/detail.html` — Thymeleaf Null Safety 강화
+
+```html
+<!-- classroom/detail.html: 과제 개수 null-safety 처리 -->
+<span th:text="${assignments != null ? #lists.size(assignments) : 0}">0</span>
+```
+
+#### ⚠️ 지적 사항 및 조치 완료
+* 컨트롤러에서 `assignments` 모델 속성이 전달되지 않거나 null인 경우 발생할 수 있는 SpEL 표현식 파싱 에러를 삼항 연산자 안전 가드로 방어.
+* 과제 상세 뷰에서 교수에게는 **제출자 모니터링 테이블 및 원클릭 채점 모달**을 제공하고, 학생에게는 **제출 폼, 제출 완료 상태 및 교수 피드백/점수**를 명확히 분기 표시.
+
+---
+
+### 📁 4. `AssignmentServiceTest.java` & `test_assignment_flow.py` — 전방위 테스트 완료
+
+```java
+// 8개 단위/통합 테스트 시나리오
+1. 과제 생성 성공 (교수 권한)
+2. 기한 내 첫 제출 (SUBMITTED 상태)
+3. 재제출 시 기존 파일 교체 및 내용 업데이트
+4. 기한 초과 제출 시 지각 허용 과제 (LATE_SUBMITTED 상태)
+5. 기한 초과 제출 시 지각 미허용 과제 예외 발생 (400 Bad Request)
+6. 미수강생의 과제 제출 시도 시 거부 예외 (403 Forbidden)
+7. 교수의 제출물 채점 및 피드백 등록 (GRADED 상태)
+8. 타인이 채점 시도 시 권한 거부 예외 (403 Forbidden)
+```
+
+* Gradle 단위/통합 테스트(`AssignmentServiceTest`) 8종 **100% 통과**.
+* Python 실제 HTTP E2E 테스트(`test_assignment_flow.py`) 실행 및 **모든 시나리오 통과**.
+
+---
+
+### 📊 8차 리뷰 종합 평가
+
+| 항목 | 평가 | 세부 조치 결과 |
+| :--- | :---: | :--- |
+| **도메인 무결성** | 🛡️ 완벽 | DB 유니크 제약 (`assignment_id`, `student_id`) 적용 |
+| **인가 및 IDOR 방어** | 🛡️ 완벽 | 수업 소속 확인 및 과제-제출물 일치 여부 다중 교차 검증 |
+| **파일 관리 안전성** | ✅ 완벽 | 재제출 시 구 파일 안전 삭제 및 트랜잭션 분리 |
+| **Null Safety** | ✅ 완벽 | Thymeleaf `#lists.size` 널 가드 및 엔티티 프리미티브 타입 검증 |
+| **테스트 검증** | ✅ 통과 | Gradle Unit/Integration Test 8종 및 HTTP E2E ALL PASS |
+
 
 

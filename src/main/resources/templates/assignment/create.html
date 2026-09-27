@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/default :: layout(~{::content})}">
+<body>
+<div th:fragment="content" class="max-w-3xl mx-auto py-6">
+
+    <!-- 상단 네비게이션 헤더 -->
+    <div class="mb-6 flex items-center justify-between">
+        <div>
+            <div class="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-1">
+                <a th:href="@{'/classes/' + ${classroom.id}}" class="hover:text-blue-600 transition" th:text="${classroom.name}">수업명</a>
+                <span>›</span>
+                <span class="text-blue-600">과제 출제</span>
+            </div>
+            <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">새 과제 출제</h1>
+            <p class="text-sm text-slate-500 mt-0.5">학생들에게 부여할 과제 내용과 제출 기한을 설정합니다.</p>
+        </div>
+        <a th:href="@{'/classes/' + ${classroom.id}}" class="text-sm font-semibold text-slate-600 hover:text-slate-900 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition shadow-xs">
+            취소하고 돌아가기
+        </a>
+    </div>
+
+    <!-- 과제 등록 폼 카드 -->
+    <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-sm">
+        <form th:action="@{'/classes/' + ${classroom.id} + '/assignments'}" th:object="${form}" method="post" enctype="multipart/form-data" class="space-y-6">
+
+            <!-- 에러 알림 -->
+            <div th:if="${errorMessage}" class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span th:text="${errorMessage}"></span>
+            </div>
+
+            <!-- 과제 제목 -->
+            <div>
+                <label for="title" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    과제 제목 <span class="text-rose-500">*</span>
+                </label>
+                <input type="text" id="title" th:field="*{title}" autofocus
+                       placeholder="예: [과제 1] 연결 리스트(Linked List) 구현 및 성능 분석"
+                       class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm placeholder:text-slate-400">
+                <p th:if="${#fields.hasErrors('title')}" th:errors="*{title}" class="text-xs text-rose-600 mt-1 font-medium"></p>
+            </div>
+
+            <!-- 연동 주차 & 배점 2단 그리드 -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="weekNumber" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">연동 주차 (선택)</label>
+                    <select id="weekNumber" th:field="*{weekNumber}"
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        <option value="">주차 미지정 (수업 전체 공통)</option>
+                        <option th:each="i : ${#numbers.sequence(1, 16)}" th:value="${i}" th:text="${i} + '주차'"></option>
+                    </select>
+                </div>
+                <div>
+                    <label for="maxScore" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                        배점 (최대 점수) <span class="text-rose-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <input type="number" id="maxScore" th:field="*{maxScore}" min="1" max="1000"
+                               class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <span class="absolute right-3.5 top-2.5 text-xs font-bold text-slate-400">점</span>
+                    </div>
+                    <p th:if="${#fields.hasErrors('maxScore')}" th:errors="*{maxScore}" class="text-xs text-rose-600 mt-1 font-medium"></p>
+                </div>
+            </div>
+
+            <!-- 마감 일시 -->
+            <div>
+                <label for="dueDate" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                    제출 마감 일시 <span class="text-rose-500">*</span>
+                </label>
+                <input type="datetime-local" id="dueDate" th:field="*{dueDate}"
+                       class="w-full sm:w-72 px-4 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <p class="text-[11px] text-slate-400 mt-1">지정한 일시 이후 제출 여부에 따라 정상/지각 제출로 자동 구분됩니다.</p>
+                <p th:if="${#fields.hasErrors('dueDate')}" th:errors="*{dueDate}" class="text-xs text-rose-600 mt-1 font-medium"></p>
+            </div>
+
+            <!-- 지각 제출 허용 여부 토글 -->
+            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div>
+                    <span class="block text-sm font-bold text-slate-800">지각 제출 허용</span>
+                    <span class="block text-xs text-slate-500 mt-0.5">마감 기한이 지난 후에도 학생의 과제 제출을 허용합니다 (지각으로 자동 표기).</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" th:field="*{allowLate}" class="sr-only peer">
+                    <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+            </div>
+
+            <!-- 과제 안내 및 상세 설명 -->
+            <div>
+                <label for="description" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">과제 상세 안내</label>
+                <textarea id="description" th:field="*{description}" rows="6"
+                          placeholder="과제 요구사항, 보고서 작성 요령, 주의사항 등을 상세히 입력해 주세요."
+                          class="w-full px-4 py-3 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm placeholder:text-slate-400 leading-relaxed"></textarea>
+                <p th:if="${#fields.hasErrors('description')}" th:errors="*{description}" class="text-xs text-rose-600 mt-1 font-medium"></p>
+            </div>
+
+            <!-- 양식/참고자료 파일 첨부 (선택) -->
+            <div>
+                <label for="attachment" class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">양식 또는 참고 파일 첨부 (선택)</label>
+                <div class="flex items-center gap-3">
+                    <input type="file" id="attachment" th:field="*{attachment}"
+                           class="block w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition cursor-pointer">
+                </div>
+                <p class="text-[11px] text-slate-400 mt-1">PDF, HWP, Word, ZIP 등 학생들에게 배포할 과제 양식(최대 20MB)을 첨부할 수 있습니다.</p>
+            </div>
+
+            <!-- 하단 제출 버튼 -->
+            <div class="pt-4 border-t border-slate-100 flex justify-end gap-3">
+                <a th:href="@{'/classes/' + ${classroom.id}}"
+                   class="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition">
+                    취소
+                </a>
+                <button type="submit"
+                        class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition">
+                    과제 출제 완료
+                </button>
+            </div>
+
+        </form>
+    </div>
+
+</div>
+</body>
+</html>
