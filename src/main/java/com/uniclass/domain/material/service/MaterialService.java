@@ -253,6 +253,10 @@ public class MaterialService {
             throw new IllegalArgumentException("해당 수업의 주차 섹션이 아닙니다.");
         }
 
+        if (dto.getStartDate() != null && dto.getEndDate() != null && dto.getStartDate().isAfter(dto.getEndDate())) {
+            throw new IllegalArgumentException("시작일은 종료일보다 이전이거나 같아야 합니다.");
+        }
+
         section.updateSectionInfo(
                 dto.getTitle(),
                 dto.getDescription(),

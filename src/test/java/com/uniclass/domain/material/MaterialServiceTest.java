@@ -348,5 +348,23 @@ class MaterialServiceTest {
         assertThat(studentView).hasSize(15);
         assertThat(studentView.stream().noneMatch(w -> w.getId().equals(week2Id))).isTrue();
     }
+
+    @Test
+    @DisplayName("시작일이 종료일보다 이후인 경우 주차 설정 변경 시 예외가 발생한다")
+    void updateWeekSection_invalidDateRange_throwsException() {
+        List<WeekSectionDto> weeks = materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true);
+        Long week1Id = weeks.get(0).getId();
+
+        com.uniclass.domain.material.dto.UpdateWeekSectionDto dto = com.uniclass.domain.material.dto.UpdateWeekSectionDto.builder()
+                .title("1주차")
+                .startDate(java.time.LocalDate.of(2026, 9, 10))
+                .endDate(java.time.LocalDate.of(2026, 9, 1)) // 종료일이 시작일보다 앞섬
+                .build();
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> materialService.updateWeekSection(classRoom.getId(), week1Id, dto, instructor.getId())
+        );
+    }
 }
 

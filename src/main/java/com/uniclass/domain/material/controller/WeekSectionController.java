@@ -28,10 +28,16 @@ public class WeekSectionController {
     public String updateWeekSection(@PathVariable("classroomId") Long classroomId,
                                     @PathVariable("sectionId") Long sectionId,
                                     @AuthenticationPrincipal CustomUserDetails userDetails,
-                                    @ModelAttribute UpdateWeekSectionDto dto,
+                                    @jakarta.validation.Valid @ModelAttribute UpdateWeekSectionDto dto,
+                                    org.springframework.validation.BindingResult bindingResult,
                                     RedirectAttributes redirectAttributes) {
         if (userDetails == null) {
             return "redirect:/login";
+        }
+        if (bindingResult.hasErrors()) {
+            String errorMsg = bindingResult.getAllErrors().get(0).getDefaultMessage();
+            redirectAttributes.addFlashAttribute("materialErrorMessage", errorMsg != null ? errorMsg : "입력값이 올바르지 않습니다.");
+            return "redirect:/classes/" + classroomId + "?tab=materials";
         }
         try {
             materialService.updateWeekSection(classroomId, sectionId, dto, userDetails.getId());

@@ -363,17 +363,25 @@
                         <h2 class="text-lg font-bold text-slate-900">주차별 커리큘럼 및 강의자료</h2>
                         <p class="text-xs text-slate-500 mt-0.5">주차별 교안 다운로드 및 학사 일정(휴강/시험/보강)을 유연하게 관리합니다.</p>
                     </div>
-                    <div th:if="${isInstructor && !classroom.archived}" class="flex items-center gap-2">
-                        <button type="button" onclick="openAddSectionModal()"
-                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
-                            <i class="fa-solid fa-plus text-slate-500"></i>
-                            <span>주차/보강 추가</span>
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="toggleAllWeeks()" id="btn-toggle-all-weeks"
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
+                                title="전체 주차 본문 일괄 접기/펼치기">
+                            <i class="fa-solid fa-chevron-up text-xs" id="icon-toggle-all"></i>
+                            <span id="text-toggle-all">모두 접기</span>
                         </button>
-                        <button type="button" onclick="openUploadModal(1)"
-                                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow transition active:scale-95">
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
-                            <span>자료 업로드</span>
-                        </button>
+                        <div th:if="${isInstructor && !classroom.archived}" class="flex items-center gap-2">
+                            <button type="button" onclick="openAddSectionModal()"
+                                    class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+                                <i class="fa-solid fa-plus text-slate-500"></i>
+                                <span>주차/보강 추가</span>
+                            </button>
+                            <button type="button" onclick="openUploadModal(1)"
+                                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow transition active:scale-95">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <span>자료 업로드</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -472,8 +480,19 @@
                                         + 자료
                                     </button>
                                 </div>
+
+                                <!-- 주차 펼치기/접기 아코디언 토글 버튼 -->
+                                <button type="button"
+                                        th:onclick="'toggleWeekSection(' + ${week.id} + ')'"
+                                        class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition"
+                                        title="접기/펼치기">
+                                    <i th:id="'week-icon-' + ${week.id}" class="fa-solid fa-chevron-up text-xs transition-transform duration-200"></i>
+                                </button>
                             </div>
                         </div>
+
+                        <!-- 주차 아코디언 본문 영역 -->
+                        <div th:id="'week-body-' + ${week.id}" class="week-section-body">
 
                         <!-- 1. 휴강(HOLIDAY) 안내 배너 -->
                         <div th:if="${week.holiday}" class="p-5 bg-amber-50/50 border-b border-amber-100 text-center">
@@ -543,6 +562,7 @@
                     </div>
                 </div>
             </div>
+            </div>
 
             <!-- ---------------------------------------- -->
             <!-- [TAB 3] 과제 (Assignments)              -->
@@ -581,13 +601,37 @@
                     </div>
                 </div>
 
+                <!-- 과제 상태 필터 탭 바 -->
+                <div th:unless="${assignments.isEmpty()}" class="flex items-center gap-2">
+                    <button type="button" onclick="filterAssignments('all')" id="btn-filter-all"
+                            class="assignment-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-sm transition">
+                        전체 <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-white/20 text-white" th:text="${assignments.size()}">0</span>
+                    </button>
+                    <button type="button" onclick="filterAssignments('active')" id="btn-filter-active"
+                            class="assignment-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition">
+                        진행 중 <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-700"
+                                    th:text="${#lists.size(assignments.?[!expired])}">0</span>
+                    </button>
+                    <button type="button" onclick="filterAssignments('closed')" id="btn-filter-closed"
+                            class="assignment-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition">
+                        마감됨 <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-200 text-slate-700"
+                                    th:text="${#lists.size(assignments.?[expired])}">0</span>
+                    </button>
+                </div>
+
                 <div th:if="${assignments.isEmpty()}" class="p-12 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center text-slate-500 text-sm">
                     <i class="fa-regular fa-folder-open text-3xl text-slate-400 mb-2 block"></i>
                     아직 출제된 과제가 없습니다.
                 </div>
 
                 <div th:unless="${assignments.isEmpty()}" class="space-y-4">
-                    <div th:each="a : ${assignments}" class="p-5 rounded-2xl border border-slate-200 bg-white hover:border-blue-300 shadow-sm transition">
+                    <div id="assignment-filter-empty" class="hidden p-12 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center text-slate-500 text-sm">
+                        <i class="fa-regular fa-folder-open text-2xl text-slate-400 mb-1.5 block"></i>
+                        해당 상태의 과제가 없습니다.
+                    </div>
+                    <div th:each="a : ${assignments}"
+                         class="assignment-item p-5 rounded-2xl border border-slate-200 bg-white hover:border-blue-300 shadow-sm transition"
+                         th:data-status="${a.expired ? 'closed' : 'active'}">
                         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div>
                                 <div class="flex items-center gap-2 mb-2 flex-wrap">
@@ -658,6 +702,48 @@
                             <i class="fa-solid fa-up-right-from-square"></i>
                             <span>출석 전용 대시보드 열기</span>
                         </a>
+                    </div>
+                </div>
+
+                <!-- 학생 전용: 내 출석률 요약 및 학칙 F학점 경고 배너 -->
+                <div th:if="${!isInstructor && studentAttendanceSummary != null}" class="space-y-3">
+                    <div th:if="${studentAttendanceSummary.attendanceRate < 80.0}"
+                         class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3 shadow-xs">
+                        <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                            <i class="fa-solid fa-triangle-exclamation text-base"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-extrabold text-sm text-rose-900 flex items-center gap-2">
+                                <span>출석률 80% 미만 경고 (학칙 F 학점 위험)</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white">경고</span>
+                            </h4>
+                            <p class="text-xs text-rose-700 mt-1 leading-relaxed">
+                                현재 출석률이 <strong class="font-extrabold text-rose-900" th:text="${studentAttendanceSummary.attendanceRate} + '%'">75%</strong>로 학칙 최저 기준(80% 이상)에 미달합니다. 결석이 누적되면 과제/시험 점수와 무관하게 <strong class="underline decoration-rose-400 font-bold">출석 미달로 자동 F 학점 처리</strong>될 수 있으니 출석 관리에 각별히 유의하세요.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-clipboard-user"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-slate-400 block">내 출석 현황 요약</span>
+                                <div class="text-xs font-semibold text-slate-700 mt-0.5">
+                                    총 <span th:text="${studentAttendanceSummary.totalSessions}">0</span>회 중
+                                    출석 <span class="text-emerald-600 font-bold" th:text="${studentAttendanceSummary.presentCount}">0</span>회 ·
+                                    지각 <span class="text-amber-600 font-bold" th:text="${studentAttendanceSummary.lateCount}">0</span>회 ·
+                                    결석 <span class="text-rose-600 font-bold" th:text="${studentAttendanceSummary.absentCount}">0</span>회
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs font-bold text-slate-400 block">현재 출석률</span>
+                            <span class="text-lg font-black"
+                                  th:classappend="${studentAttendanceSummary.attendanceRate >= 80} ? 'text-emerald-600' : 'text-rose-600'"
+                                  th:text="${studentAttendanceSummary.attendanceRate} + '%'">100%</span>
+                        </div>
                     </div>
                 </div>
 
@@ -790,10 +876,51 @@
                         </div>
                     </div>
 
+                    <!-- 학생 전용: 출석률 80% 미만 F학점 위험 경고 배너 -->
+                    <div th:if="${!isInstructor && gradeBook.studentRows[0].attendanceRate < 80.0}"
+                         class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3 shadow-xs">
+                        <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                            <i class="fa-solid fa-triangle-exclamation text-base"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-extrabold text-sm text-rose-900 flex items-center gap-2">
+                                <span>학칙 F 학점 주의: 출석 미달 위험</span>
+                                <span class="px-2 py-0.5 rounded text-[10px] font-black bg-rose-600 text-white">주의</span>
+                            </h4>
+                            <p class="text-xs text-rose-700 mt-1 leading-relaxed">
+                                현재 출석률 <strong class="font-extrabold text-rose-900" th:text="${gradeBook.studentRows[0].attendanceRate} + '%'">75%</strong>는 학칙 최저 이수 기준(80% 이상)에 미달합니다. 잔여 수업에 성실히 출석하지 않을 시 <strong class="underline decoration-rose-400 font-bold">출석 미달로 인한 F 학점</strong>이 부여될 수 있습니다.
+                            </p>
+                        </div>
+                    </div>
+
                     <!-- 학생 전용 보안/개인정보 안내 배너 -->
                     <div th:unless="${isInstructor}" class="p-3.5 bg-blue-50/80 border border-blue-200/80 rounded-2xl text-xs text-blue-800 flex items-center gap-2">
                         <i class="fa-solid fa-shield-halved text-blue-600 text-sm"></i>
                         <span>본인 성적만 안전하게 열람할 수 있도록 보호되며, 타 학생의 성적 및 학급 전체 평균 점수는 비공개 처리됩니다.</span>
+                    </div>
+
+                    <!-- 교수 전용: 수강생 검색 및 다중 정렬 툴바 -->
+                    <div th:if="${isInstructor}" class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                        <div class="relative flex-1 max-w-sm">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="text" id="gradeSearchInput" oninput="filterAndSortGrades()" placeholder="학생 이름 또는 학번 검색..."
+                                   class="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                            <span class="text-xs font-bold text-slate-500 whitespace-nowrap"><i class="fa-solid fa-arrow-down-short-wide mr-1"></i>정렬:</span>
+                            <select id="gradeSortSelect" onchange="filterAndSortGrades()"
+                                    class="bg-white border border-slate-200 text-slate-700 text-xs rounded-xl px-3 py-1.5 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                                <option value="name-asc">이름순 (가나다)</option>
+                                <option value="studentNo-asc">학번순 (오름차순)</option>
+                                <option value="score-desc">종합점수 (높은순)</option>
+                                <option value="score-asc">종합점수 (낮은순)</option>
+                                <option value="attendance-desc">출석률 (높은순)</option>
+                                <option value="attendance-asc">출석률 (낮은순)</option>
+                            </select>
+                            <span class="text-xs font-semibold text-slate-400 whitespace-nowrap">
+                                <strong class="text-blue-600" id="gradeVisibleCount" th:text="${gradeBook.studentRows.size()}">0</strong> / <span th:text="${gradeBook.studentRows.size()}">0</span>명
+                            </span>
+                        </div>
                     </div>
 
                     <div class="overflow-x-auto max-h-[600px] rounded-2xl border border-slate-200 shadow-sm">
@@ -812,8 +939,13 @@
                                 <th class="p-3.5 text-center">학점</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100 bg-white">
-                            <tr th:each="row : ${gradeBook.studentRows}" class="hover:bg-slate-50/70 transition">
+                        <tbody id="gradeTableBody" class="divide-y divide-slate-100 bg-white">
+                            <tr th:each="row : ${gradeBook.studentRows}"
+                                class="grade-row hover:bg-slate-50/70 transition"
+                                th:data-name="${row.studentName}"
+                                th:data-student-no="${row.studentNo}"
+                                th:data-score="${row.totalCompositeScore}"
+                                th:data-attendance="${row.attendanceRate}">
                                 <td class="p-3.5 font-bold text-slate-900" th:text="${row.studentName}">김학생</td>
                                 <td class="p-3.5 font-mono text-slate-500 text-xs" th:text="${row.studentNo}">20261111</td>
                                 <td th:each="header : ${gradeBook.assignmentHeaders}" class="p-3.5">
@@ -829,6 +961,7 @@
                                 <td class="p-3.5">
                                     <span class="font-bold" th:classappend="${row.attendanceRate >= 80} ? 'text-emerald-600' : 'text-rose-600'"
                                           th:text="${row.attendanceRate} + '%'">100%</span>
+                                    <span th:if="${row.attendanceRate < 80}" class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">F위험</span>
                                 </td>
                                 <td class="p-3.5 font-black text-blue-600 text-base" th:text="${row.totalCompositeScore} + '점'">92.5점</td>
                                 <td class="p-3.5 text-center">
@@ -1338,6 +1471,140 @@
             }, 3500);
         }
     });
+
+    // ----------------------------------------
+    // [Tab 2] 주차 섹션 아코디언 토글
+    // ----------------------------------------
+    let allWeeksCollapsed = false;
+    function toggleAllWeeks() {
+        allWeeksCollapsed = !allWeeksCollapsed;
+        const bodies = document.querySelectorAll('.week-section-body');
+        bodies.forEach(b => {
+            if (allWeeksCollapsed) {
+                b.classList.add('hidden');
+            } else {
+                b.classList.remove('hidden');
+            }
+        });
+        const icons = document.querySelectorAll('[id^="week-icon-"]');
+        icons.forEach(ic => {
+            if (allWeeksCollapsed) {
+                ic.classList.add('rotate-180');
+            } else {
+                ic.classList.remove('rotate-180');
+            }
+        });
+        const textEl = document.getElementById('text-toggle-all');
+        const iconEl = document.getElementById('icon-toggle-all');
+        if (textEl) textEl.textContent = allWeeksCollapsed ? '모두 펼치기' : '모두 접기';
+        if (iconEl) {
+            if (allWeeksCollapsed) {
+                iconEl.classList.remove('fa-chevron-up');
+                iconEl.classList.add('fa-chevron-down');
+            } else {
+                iconEl.classList.remove('fa-chevron-down');
+                iconEl.classList.add('fa-chevron-up');
+            }
+        }
+    }
+
+    function toggleWeekSection(id) {
+        const body = document.getElementById('week-body-' + id);
+        const icon = document.getElementById('week-icon-' + id);
+        if (!body) return;
+        const isHidden = body.classList.toggle('hidden');
+        if (icon) {
+            if (isHidden) {
+                icon.classList.add('rotate-180');
+            } else {
+                icon.classList.remove('rotate-180');
+            }
+        }
+    }
+
+    // ----------------------------------------
+    // [Tab 3] 과제 상태 필터링 (전체 / 진행 중 / 마감됨)
+    // ----------------------------------------
+    function filterAssignments(status) {
+        const items = document.querySelectorAll('.assignment-item');
+        let visibleCount = 0;
+        items.forEach(item => {
+            if (status === 'all' || item.getAttribute('data-status') === status) {
+                item.classList.remove('hidden');
+                visibleCount++;
+            } else {
+                item.classList.add('hidden');
+            }
+        });
+        const emptyMsg = document.getElementById('assignment-filter-empty');
+        if (emptyMsg) {
+            if (visibleCount === 0) emptyMsg.classList.remove('hidden');
+            else emptyMsg.classList.add('hidden');
+        }
+        document.querySelectorAll('.assignment-filter-btn').forEach(btn => {
+            btn.className = 'assignment-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 transition';
+        });
+        const activeBtn = document.getElementById('btn-filter-' + status);
+        if (activeBtn) {
+            activeBtn.className = 'assignment-filter-btn px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-sm transition';
+        }
+    }
+
+    // ----------------------------------------
+    // [Tab 5] 성적부 실시간 검색 및 다중 정렬
+    // ----------------------------------------
+    function filterAndSortGrades() {
+        const input = document.getElementById('gradeSearchInput');
+        const sortSelect = document.getElementById('gradeSortSelect');
+        const tbody = document.getElementById('gradeTableBody');
+        if (!tbody) return;
+
+        const query = input ? input.value.trim().toLowerCase() : '';
+        const sortBy = sortSelect ? sortSelect.value : 'name-asc';
+
+        const rows = Array.from(tbody.querySelectorAll('.grade-row'));
+        let visibleCount = 0;
+
+        // 1. Filter
+        rows.forEach(row => {
+            const name = (row.getAttribute('data-name') || '').toLowerCase();
+            const studentNo = (row.getAttribute('data-student-no') || '').toLowerCase();
+            const matches = name.includes(query) || studentNo.includes(query);
+            if (matches) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // 2. Sort
+        rows.sort((a, b) => {
+            const nameA = a.getAttribute('data-name') || '';
+            const nameB = b.getAttribute('data-name') || '';
+            const noA = a.getAttribute('data-student-no') || '';
+            const noB = b.getAttribute('data-student-no') || '';
+            const scoreA = parseFloat(a.getAttribute('data-score') || '0');
+            const scoreB = parseFloat(b.getAttribute('data-score') || '0');
+            const attA = parseFloat(a.getAttribute('data-attendance') || '0');
+            const attB = parseFloat(b.getAttribute('data-attendance') || '0');
+
+            switch (sortBy) {
+                case 'name-asc': return nameA.localeCompare(nameB, 'ko');
+                case 'studentNo-asc': return noA.localeCompare(noB);
+                case 'score-desc': return scoreB - scoreA;
+                case 'score-asc': return scoreA - scoreB;
+                case 'attendance-desc': return attB - attA;
+                case 'attendance-asc': return attA - attB;
+                default: return 0;
+            }
+        });
+
+        rows.forEach(row => tbody.appendChild(row));
+
+        const countEl = document.getElementById('gradeVisibleCount');
+        if (countEl) countEl.textContent = visibleCount;
+    }
 </script>
 </body>
 </html>
