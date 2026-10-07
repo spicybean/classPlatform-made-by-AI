@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import os
+import shutil
 import argparse
 
 if sys.stdout.encoding != 'utf-8':
@@ -162,20 +163,21 @@ def run():
 </git_diff>
 """
         # 1차: Claude Sonnet 5.5 (Low) 모델 사용으로 thinking 토큰 소모 최소화
-        cmd = ["agy", "--model", "Claude Sonnet 5.5 (Low)", "--print", prompt]
+        agy_bin = shutil.which("agy") or os.path.expanduser("~\\AppData\\Local\\agy\\bin\\agy.exe")
+        cmd = [agy_bin, "--model", "Claude Sonnet 5.5 (Low)", "--print", prompt]
         
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", check=True)
-            print(result.stdout.strip())
+            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+            if result.returncode == 0:
+                print(result.stdout.strip())
+            else:
+                stderr = result.stderr.strip() if result.stderr else ""
+                if "RESOURCE_EXHAUSTED" in stderr or "quota" in stderr.lower():
+                    print(f"⚠️ [Claude 쿼터 소진] Claude API 쿼터 한도에 도달했습니다: {stderr.splitlines()[0] if stderr else '429 Quota'}")
+                else:
+                    print(f"⚠️ [리뷰 알림] Claude 실행 결과 (코드 {result.returncode}): {stderr if stderr else result.stdout.strip()}")
         except Exception as e:
-            err_msg = str(e)
-            print(f"⚠️ [비상 전환] Claude 호출 실패({err_msg.strip()}). OpenAI Codex CLI로 비상 전환합니다...", file=sys.stderr)
-            try:
-                codex_cmd = ["codex", "exec", prompt]
-                codex_res = subprocess.run(codex_cmd, capture_output=True, text=True, encoding="utf-8", check=True)
-                print(codex_res.stdout.strip())
-            except Exception as ce:
-                print(f"[오류] Codex 비상 전환 실패 (Chunk {idx+1}): {ce}", file=sys.stderr)
+            print(f"⚠️ [리뷰 알림] 실행 예외: {e}")
 
 if __name__ == "__main__":
     run()
