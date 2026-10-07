@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/default :: layout(~{::content})}">
+<body>
+<div th:fragment="content" class="space-y-6">
+
+    <!-- 상단 알림 토스트 배너 -->
+    <div th:if="${librarySuccessMessage}" id="alertSuccessBanner"
+         class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-between shadow-sm transition-all duration-300">
+        <div class="flex items-center gap-2.5">
+            <i class="fa-solid fa-circle-check text-emerald-600"></i>
+            <span class="text-sm font-bold" th:text="${librarySuccessMessage}">성공 메시지</span>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-emerald-500 hover:text-emerald-700">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <div th:if="${libraryErrorMessage}" id="alertErrorBanner"
+         class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between shadow-sm transition-all duration-300">
+        <div class="flex items-center gap-2.5">
+            <i class="fa-solid fa-triangle-exclamation text-rose-600"></i>
+            <span class="text-sm font-bold" th:text="${libraryErrorMessage}">오류 메시지</span>
+        </div>
+        <button type="button" onclick="this.parentElement.remove()" class="text-rose-500 hover:text-rose-700">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <!-- 헤더 섹션 -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+        <div>
+            <div class="flex items-center gap-2 mb-1">
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    <i class="fa-solid fa-cloud-arrow-up mr-1"></i>교수 전용 영구 스토리지
+                </span>
+            </div>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">내 자료 보관함 (My Library)</h1>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                특정 강좌에 종속되지 않고 영구 보관되며, 개설된 모든 수업에 원클릭으로 즉시 복제·배포할 수 있는 개인 라이브러리입니다.
+            </p>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="toggleUploadModal(true)"
+                    class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition active:scale-95">
+                <i class="fa-solid fa-plus"></i>
+                <span>새 자료 보관하기</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 대시보드 통계 카드 -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shadow-xs">
+                <i class="fa-solid fa-box-archive"></i>
+            </div>
+            <div>
+                <span class="text-xs font-bold text-slate-400 block">총 보관 자료</span>
+                <span class="text-xl font-black text-slate-800" th:text="${summary.totalItems} + '개'">0개</span>
+            </div>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shadow-xs">
+                <i class="fa-solid fa-hard-drive"></i>
+            </div>
+            <div>
+                <span class="text-xs font-bold text-slate-400 block">사용 중인 용량</span>
+                <span class="text-xl font-black text-slate-800" th:text="${summary.formattedTotalSize}">0 B</span>
+            </div>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shadow-xs">
+                <i class="fa-solid fa-book-open"></i>
+            </div>
+            <div>
+                <span class="text-xs font-bold text-slate-400 block">강의교안 자료</span>
+                <span class="text-xl font-black text-slate-800" th:text="${summary.countByCategory['LECTURE_NOTE'] ?: 0} + '개'">0개</span>
+            </div>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl shadow-xs">
+                <i class="fa-solid fa-pen-to-square"></i>
+            </div>
+            <div>
+                <span class="text-xs font-bold text-slate-400 block">과제 및 시험양식</span>
+                <span class="text-xl font-black text-slate-800"
+                      th:text="(${summary.countByCategory['ASSIGNMENT_TEMPLATE'] ?: 0} + ${summary.countByCategory['EXAM_PAPER'] ?: 0}) + '개'">0개</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 검색 & 필터 툴바 -->
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 bg-white rounded-2xl border border-slate-200 shadow-xs">
+        <!-- 카테고리 탭 필터 -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+            <a th:href="@{/library(keyword=${keyword})}"
+               class="px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap"
+               th:classappend="${currentCategory == null} ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'">
+                전체
+            </a>
+            <a th:each="cat : ${categories}"
+               th:href="@{/library(category=${cat.name()}, keyword=${keyword})}"
+               class="px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap"
+               th:classappend="${currentCategory != null && currentCategory.name() == cat.name()} ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'">
+                <span th:text="${cat.displayName}">강의교안</span>
+            </a>
+        </div>
+
+        <!-- 실시간 키워드 검색 -->
+        <form th:action="@{/library}" method="get" class="flex items-center gap-2">
+            <input th:if="${currentCategory != null}" type="hidden" name="category" th:value="${currentCategory.name()}" />
+            <div class="relative w-full sm:w-64">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                <input type="text" name="keyword" th:value="${keyword}" placeholder="자료명 검색..."
+                       class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+            </div>
+            <button type="submit" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition">
+                검색
+            </button>
+            <a th:if="${keyword != null && !keyword.isEmpty()}" th:href="@{/library(category=${currentCategory != null ? currentCategory.name() : null})}"
+               class="px-2.5 py-1.5 rounded-xl text-slate-400 hover:text-slate-600 text-xs transition" title="검색 초기화">
+                <i class="fa-solid fa-rotate-left"></i>
+            </a>
+        </form>
+    </div>
+
+    <!-- 자료 목록 테이블 / 카드 -->
+    <div th:if="${items.isEmpty()}" class="p-16 rounded-2xl bg-white border border-dashed border-slate-200 text-center text-slate-400">
+        <i class="fa-solid fa-box-open text-4xl text-slate-300 mb-3 block"></i>
+        <h3 class="font-bold text-slate-700 text-sm">보관된 자료가 없습니다.</h3>
+        <p class="text-xs text-slate-400 mt-1">자주 활용하는 강의 교안, 과제 템플릿, 시험 문제지를 등록해 두고 모든 수업에 손쉽게 배포하세요.</p>
+        <button type="button" onclick="toggleUploadModal(true)"
+                class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs transition">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <span>첫 자료 보관하기</span>
+        </button>
+    </div>
+
+    <div th:unless="${items.isEmpty()}" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div th:each="item : ${items}" class="p-5 rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-md transition flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between gap-2 mb-2.5">
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border flex items-center gap-1.5"
+                          th:classappend="${item.categoryBadgeClass}">
+                        <i class="fa-solid" th:classappend="${item.categoryIconClass}"></i>
+                        <span th:text="${item.categoryDisplayName}">강의교안</span>
+                    </span>
+                    <span class="text-xs font-mono text-slate-400" th:text="${item.formattedCreatedAt}">2026-10-10</span>
+                </div>
+
+                <h3 class="font-black text-slate-900 text-base line-clamp-1" th:text="${item.title}">자료 제목</h3>
+                <p th:if="${item.description}" class="text-xs text-slate-500 mt-1 line-clamp-2" th:text="${item.description}"></p>
+
+                <div class="mt-3.5 p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <div class="flex items-center gap-2 truncate">
+                        <i class="fa-regular fa-file text-slate-400"></i>
+                        <span class="truncate font-semibold" th:text="${item.originalFilename}">slides.pdf</span>
+                    </div>
+                    <span class="font-mono text-slate-400 shrink-0 ml-2" th:text="${item.formattedFileSize}">2.4MB</span>
+                </div>
+            </div>
+
+            <div class="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between">
+                <span class="text-xs text-slate-400">
+                    다운로드 <strong class="text-slate-700 font-bold" th:text="${item.downloadCount}">0</strong>회
+                </span>
+                <div class="flex items-center gap-2">
+                    <a th:href="@{/library/{id}/download(id=${item.id})}"
+                       class="px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white text-xs font-bold transition flex items-center gap-1">
+                        <i class="fa-solid fa-download text-[11px]"></i>
+                        <span>다운로드</span>
+                    </a>
+                    <form th:action="@{/library/{id}/delete(id=${item.id})}" method="post" class="inline m-0">
+                        <button type="submit" onclick="return confirm('보관함에서 이 자료를 삭제하시겠습니까? (이미 수업에 가져간 자료는 유지됩니다)');"
+                                class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="보관함에서 삭제">
+                            <i class="fa-regular fa-trash-can"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 자료 보관 업로드 모달 -->
+    <div id="uploadModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-base">새 자료 보관함 등록</h3>
+                </div>
+                <button type="button" onclick="toggleUploadModal(false)" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form th:action="@{/library/upload}" method="post" enctype="multipart/form-data" th:object="${uploadForm}" class="space-y-4 mt-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">자료 제목 <span class="text-rose-500">*</span></label>
+                    <input type="text" th:field="*{title}" placeholder="예: [2026] 컴퓨터구조론 1주차 강의 슬라이드" required
+                           class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">분류 카테고리 <span class="text-rose-500">*</span></label>
+                    <select th:field="*{category}" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                        <option th:each="cat : ${categories}" th:value="${cat.name()}" th:text="${cat.displayName}">강의교안</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">첨부 파일 <span class="text-rose-500">*</span> (최대 20MB)</label>
+                    <input type="file" th:field="*{file}" required
+                           class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">자료 메모 / 설명 (선택)</label>
+                    <textarea th:field="*{description}" rows="2" placeholder="자료에 대한 간략한 설명 또는 수업 운영 팁을 적어두세요."
+                              class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"></textarea>
+                </div>
+
+                <div class="p-3 bg-indigo-50/70 rounded-xl border border-indigo-100 text-[11px] text-indigo-800 leading-relaxed">
+                    <i class="fa-solid fa-circle-info mr-1"></i>
+                    보관함에 저장된 자료는 영구 보존되며, 추후 개설할 강좌의 주차별 자료실에서 언제든 원클릭으로 불러올 수 있습니다.
+                </div>
+
+                <div class="pt-3 flex justify-end gap-2 border-t border-slate-100">
+                    <button type="button" onclick="toggleUploadModal(false)"
+                            class="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition">
+                        취소
+                    </button>
+                    <button type="submit"
+                            class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition">
+                        보관함에 저장
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function toggleUploadModal(show) {
+        const modal = document.getElementById('uploadModal');
+        if (modal) {
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+    }
+
+    // 알림 토스트 자동 페이드아웃 (3.5초)
+    ['alertSuccessBanner', 'alertErrorBanner'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            setTimeout(() => {
+                el.classList.add('opacity-0', 'translate-x-4');
+                setTimeout(() => el.remove(), 500);
+            }, 3500);
+        }
+    });
+</script>
+</body>
+</html>

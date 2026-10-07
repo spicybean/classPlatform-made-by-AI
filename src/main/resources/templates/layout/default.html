@@ -59,9 +59,15 @@
                         <i class="fa-solid fa-house text-xs text-slate-400"></i>
                         <span>캠퍼스 포털</span>
                     </a>
-                    <a th:href="@{/classes}" class="hover:text-blue-600 font-semibold transition flex items-center gap-1.5 text-blue-600">
-                        <i class="fa-solid fa-book-open text-xs"></i>
+                    <a th:href="@{/classes}" class="hover:text-blue-600 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-book-open text-xs text-slate-400"></i>
                         <span>클래스룸</span>
+                    </a>
+                    <!-- 🌟 교수 전용: 내 영구 자료 보관함 (My Library) -->
+                    <a sec:authorize="hasRole('ROLE_INSTRUCTOR')" th:href="@{/library}"
+                       class="hover:text-indigo-700 font-bold transition flex items-center gap-1.5 text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 shadow-xs">
+                        <i class="fa-solid fa-box-archive text-xs text-indigo-500"></i>
+                        <span>내 보관함</span>
                     </a>
                     <a th:href="@{/#academic-calendar}" class="hover:text-blue-600 transition flex items-center gap-1.5">
                         <i class="fa-regular fa-calendar text-xs text-slate-400"></i>

@@ -93,6 +93,43 @@ public class FileStorageService {
     }
 
     /**
+     * 기존 저장 파일을 새로운 대상 디렉터리로 복제 (새로운 고유 파일명 생성)
+     */
+    public StoredFile copy(String sourceRelativePath, String targetSubDirectory) {
+        if (sourceRelativePath == null || sourceRelativePath.isBlank()) {
+            throw new IllegalArgumentException("복제할 원본 파일 경로가 비어 있습니다.");
+        }
+
+        Path sourcePath = this.rootLocation.resolve(sourceRelativePath).normalize();
+        if (!sourcePath.startsWith(this.rootLocation) || !Files.exists(sourcePath) || !Files.isRegularFile(sourcePath)) {
+            throw new IllegalArgumentException("원본 파일을 찾을 수 없습니다: " + sourceRelativePath);
+        }
+
+        String filename = sourcePath.getFileName().toString();
+        String extension = getFileExtension(filename);
+        String storedFilename = UUID.randomUUID().toString() + (extension.isEmpty() ? "" : "." + extension);
+
+        try {
+            Path targetDir = this.rootLocation.resolve(targetSubDirectory).normalize();
+            Files.createDirectories(targetDir);
+
+            Path targetPath = targetDir.resolve(storedFilename).normalize();
+            if (!targetPath.startsWith(this.rootLocation)) {
+                throw new SecurityException("보안 정책상 지정된 업로드 디렉터리 외부에 파일을 복제할 수 없습니다.");
+            }
+
+            Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+            long fileSize = Files.size(targetPath);
+            String contentType = Files.probeContentType(targetPath);
+
+            String relativePath = Paths.get(targetSubDirectory, storedFilename).toString().replace('\\', '/');
+            return new StoredFile(filename, storedFilename, relativePath, fileSize, contentType);
+        } catch (IOException e) {
+            throw new IllegalStateException("파일 복제 중 입출력 오류가 발생했습니다: " + sourceRelativePath, e);
+        }
+    }
+
+    /**
      * 저장된 파일 리소스 로드 (다운로드용)
      */
     public Resource loadAsResource(String relativePath) {

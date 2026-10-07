@@ -371,6 +371,12 @@
                             <span id="text-toggle-all">모두 접기</span>
                         </button>
                         <div th:if="${isInstructor && !classroom.archived}" class="flex items-center gap-2">
+                            <button type="button" onclick="openImportLibraryModal(1)"
+                                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 transition active:scale-95"
+                                    title="내 보관함의 자료를 원클릭으로 주차에 복제/가져오기">
+                                <i class="fa-solid fa-box-archive text-indigo-500"></i>
+                                <span>보관함 가져오기</span>
+                            </button>
                             <button type="button" onclick="openAddSectionModal()"
                                     class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
                                 <i class="fa-solid fa-plus text-slate-500"></i>
@@ -472,6 +478,14 @@
                                             <i class="fa-regular fa-trash-can"></i>
                                         </button>
                                     </form>
+
+                                    <!-- 보관함 가져오기 버튼 -->
+                                    <button type="button"
+                                            th:onclick="'openImportLibraryModal(' + ${week.weekNumber} + ')'"
+                                            class="px-2 py-1 rounded-lg text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition"
+                                            title="내 보관함에서 이 주차로 자료 가져오기">
+                                        + 보관함
+                                    </button>
 
                                     <!-- 자료 추가 버튼 -->
                                     <button type="button"
@@ -1379,6 +1393,68 @@
         </div>
     </div>
 
+    <!-- 5. 내 보관함에서 가져오기 모달 -->
+    <div id="importLibraryModal" th:if="${isInstructor && !classroom.archived}" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-base shadow-xs">
+                        <i class="fa-solid fa-box-archive"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-900 text-base">내 보관함에서 가져오기</h3>
+                        <p class="text-xs text-slate-400">보관함에 영구 저장된 자료를 본 수업 주차로 복제합니다.</p>
+                    </div>
+                </div>
+                <button type="button" onclick="toggleImportLibraryModal(false)" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <form th:action="@{/classes/{cId}/materials/import-library(cId=${classroom.id})}" method="post" class="flex flex-col flex-1 overflow-hidden mt-4">
+                <div class="space-y-4 overflow-y-auto pr-1 flex-1">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">배치할 주차 <span class="text-rose-500">*</span></label>
+                        <select name="weekNumber" id="importWeekSelect" required
+                                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                            <option th:each="w : ${weeks}" th:value="${w.weekNumber}" th:text="${w.weekNumber} + '주차 (' + ${w.title} + ')'">1주차</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-xs font-bold text-slate-700">가져올 보관함 자료 선택 <span class="text-rose-500">*</span></label>
+                            <a th:href="@{/library}" target="_blank" class="text-[11px] font-bold text-indigo-600 hover:underline">
+                                보관함 관리 <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                            </a>
+                        </div>
+                        <div id="libraryItemsContainer" class="max-h-52 overflow-y-auto space-y-2 border border-slate-200 rounded-xl p-2.5 bg-slate-50">
+                            <div class="text-center py-6 text-xs text-slate-400">
+                                <i class="fa-solid fa-spinner fa-spin mr-1"></i> 보관함 자료를 불러오는 중...
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">수업에 표시할 자료명 (비워두면 기존 자료명 사용)</label>
+                        <input type="text" name="customTitle" id="importCustomTitle" placeholder="예: [수업용] 1주차 강의 교안"
+                               class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                    </div>
+                </div>
+
+                <div class="pt-4 flex justify-end gap-2 border-t border-slate-100 shrink-0 mt-4">
+                    <button type="button" onclick="toggleImportLibraryModal(false)" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition">
+                        취소
+                    </button>
+                    <button type="submit" id="btnSubmitImportLibrary" disabled
+                            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition">
+                        수업으로 가져오기
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </div>
 
 <!-- 초대 코드 복사 & 모달 스크립트 -->
@@ -1604,6 +1680,78 @@
 
         const countEl = document.getElementById('gradeVisibleCount');
         if (countEl) countEl.textContent = visibleCount;
+    }
+
+    // ----------------------------------------
+    // [Tab 2] 내 보관함에서 가져오기 모달
+    // ----------------------------------------
+    function openImportLibraryModal(weekNum) {
+        const select = document.getElementById('importWeekSelect');
+        if (select && weekNum) {
+            select.value = weekNum;
+        }
+        toggleImportLibraryModal(true);
+        loadLibraryItems();
+    }
+
+    function toggleImportLibraryModal(show) {
+        const modal = document.getElementById('importLibraryModal');
+        if (modal) {
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+    }
+
+    function loadLibraryItems() {
+        const container = document.getElementById('libraryItemsContainer');
+        const submitBtn = document.getElementById('btnSubmitImportLibrary');
+        if (!container) return;
+
+        container.innerHTML = '<div class="text-center py-6 text-xs text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1"></i> 보관함 자료를 불러오는 중...</div>';
+
+        fetch('/api/library/items')
+            .then(res => res.json())
+            .then(items => {
+                if (!items || items.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-6 text-xs text-slate-400">
+                            보관함에 등록된 자료가 없습니다.<br>
+                            <a href="/library" target="_blank" class="text-indigo-600 font-bold underline mt-1 inline-block">내 보관함 바로가기 &rarr;</a>
+                        </div>`;
+                    if (submitBtn) submitBtn.disabled = true;
+                    return;
+                }
+
+                container.innerHTML = items.map((item, idx) => `
+                    <label class="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-white hover:border-indigo-400 hover:bg-indigo-50/30 cursor-pointer transition">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <input type="radio" name="libraryItemId" value="${item.id}" ${idx === 0 ? 'checked' : ''} onchange="onLibraryItemSelect('${item.title.replace(/'/g, "\\'")}')" class="text-indigo-600 focus:ring-indigo-500">
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${item.categoryBadgeClass}">${item.categoryDisplayName}</span>
+                                    <span class="text-xs font-bold text-slate-800 truncate">${item.title}</span>
+                                </div>
+                                <span class="text-[11px] text-slate-400 font-mono block mt-0.5">${item.originalFilename} (${item.formattedFileSize})</span>
+                            </div>
+                        </div>
+                    </label>
+                `).join('');
+
+                if (items.length > 0) {
+                    if (submitBtn) submitBtn.disabled = false;
+                    onLibraryItemSelect(items[0].title);
+                }
+            })
+            .catch(err => {
+                container.innerHTML = '<div class="text-center py-4 text-xs text-rose-500">목록을 불러오지 못했습니다.</div>';
+            });
+    }
+
+    function onLibraryItemSelect(title) {
+        const titleInput = document.getElementById('importCustomTitle');
+        if (titleInput && (!titleInput.value || titleInput.dataset.autoFilled === 'true')) {
+            titleInput.placeholder = title;
+        }
     }
 </script>
 </body>
