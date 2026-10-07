@@ -74,15 +74,11 @@ public class AssignmentService {
             throw new IllegalArgumentException("수업 담당 교수만 과제를 출제할 수 있습니다.");
         }
 
-        if (classRoom.isArchived()) {
-            throw new IllegalArgumentException("종료되어 보관된 수업에는 과제를 출제할 수 없습니다.");
-        }
+        classRoom.assertEditable();
 
-        LocalDateTime dueDate;
-        try {
-            dueDate = LocalDateTime.parse(dto.getDueDate().trim());
-        } catch (DateTimeParseException e) {
-            throw new IllegalArgumentException("마감 일시 형식이 올바르지 않습니다 (예: 2026-04-10T23:59).");
+        LocalDateTime dueDate = dto.getDueDate();
+        if (dueDate == null) {
+            throw new IllegalArgumentException("마감 일시를 지정해 주세요.");
         }
 
         // 주차 연동 (선택 사항)
@@ -202,6 +198,8 @@ public class AssignmentService {
         if (!assignment.getClassroom().getId().equals(classroomId)) {
             throw new IllegalArgumentException("해당 수업에 속한 과제가 아닙니다.");
         }
+
+        assignment.getClassroom().assertEditable();
 
         // 수강생 여부 검증
         boolean isEnrolled = enrollmentRepository.existsByStudentIdAndClassroomIdAndStatus(studentId, classroomId, EnrollmentStatus.ENROLLED);
@@ -339,6 +337,8 @@ public class AssignmentService {
         if (!submission.getAssignment().getClassroom().getInstructor().getId().equals(instructorId)) {
             throw new IllegalArgumentException("수업 담당 교수만 채점할 수 있습니다.");
         }
+
+        submission.getAssignment().getClassroom().assertEditable();
 
         int maxScore = submission.getAssignment().getMaxScore();
         if (score < 0 || score > maxScore) {
@@ -494,6 +494,8 @@ public class AssignmentService {
         if (!assignment.getClassroom().getInstructor().getId().equals(instructorId)) {
             throw new IllegalArgumentException("수업 담당 교수만 채점할 수 있습니다.");
         }
+
+        assignment.getClassroom().assertEditable();
 
         boolean isEnrolled = enrollmentRepository.existsByStudentIdAndClassroomIdAndStatus(studentId, classroomId, EnrollmentStatus.ENROLLED);
         if (!isEnrolled) {

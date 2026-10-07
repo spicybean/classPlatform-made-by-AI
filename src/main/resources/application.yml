@@ -25,6 +25,11 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+
+  jackson:
+    time-zone: Asia/Seoul
 
   # File Upload Limit Configuration (20MB for slides/assignments)
   servlet:
@@ -37,3 +42,4 @@ uniclass:
   current-semester: 2026-1학기
   upload:
     location: ./uploads
+  init-test-data: true

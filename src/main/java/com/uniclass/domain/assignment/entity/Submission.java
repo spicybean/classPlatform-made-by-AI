@@ -59,6 +59,9 @@ public class Submission {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Version
+    private Long version;
+
     @PrePersist
     public void prePersist() {
         LocalDateTime now = LocalDateTime.now();

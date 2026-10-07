@@ -113,7 +113,7 @@ class AssignmentServiceTest {
         CreateAssignmentDto dto = new CreateAssignmentDto();
         dto.setTitle("1차 과제 - 정렬 알고리즘");
         dto.setDescription("퀵 정렬과 병합 정렬을 구현하세요.");
-        dto.setDueDate(LocalDateTime.now().plusDays(7).toString());
+        dto.setDueDate(LocalDateTime.now().plusDays(7));
         dto.setMaxScore(100);
         dto.setAllowLate(true);
         dto.setWeekNumber(2);
@@ -132,7 +132,7 @@ class AssignmentServiceTest {
     void submitAssignment_onTime_success() {
         CreateAssignmentDto createDto = new CreateAssignmentDto();
         createDto.setTitle("정상 제출 테스트 과제");
-        createDto.setDueDate(LocalDateTime.now().plusDays(3).toString());
+        createDto.setDueDate(LocalDateTime.now().plusDays(3));
         createDto.setMaxScore(100);
         createDto.setAllowLate(true);
 
@@ -167,7 +167,7 @@ class AssignmentServiceTest {
     void submitAssignment_resubmit_replacesExistingFile() {
         CreateAssignmentDto createDto = new CreateAssignmentDto();
         createDto.setTitle("재제출 테스트 과제");
-        createDto.setDueDate(LocalDateTime.now().plusDays(3).toString());
+        createDto.setDueDate(LocalDateTime.now().plusDays(3));
         Long assignmentId = assignmentService.createAssignment(classRoom.getId(), instructor.getId(), createDto);
 
         // 1차 제출
@@ -251,7 +251,7 @@ class AssignmentServiceTest {
     void submitAssignment_byOutsider_denied() {
         CreateAssignmentDto createDto = new CreateAssignmentDto();
         createDto.setTitle("보안 테스트 과제");
-        createDto.setDueDate(LocalDateTime.now().plusDays(2).toString());
+        createDto.setDueDate(LocalDateTime.now().plusDays(2));
         Long assignmentId = assignmentService.createAssignment(classRoom.getId(), instructor.getId(), createDto);
 
         MockMultipartFile file = new MockMultipartFile(
@@ -270,7 +270,7 @@ class AssignmentServiceTest {
     void gradeSubmission_success() {
         CreateAssignmentDto createDto = new CreateAssignmentDto();
         createDto.setTitle("채점 대상 과제");
-        createDto.setDueDate(LocalDateTime.now().plusDays(2).toString());
+        createDto.setDueDate(LocalDateTime.now().plusDays(2));
         createDto.setMaxScore(100);
         Long assignmentId = assignmentService.createAssignment(classRoom.getId(), instructor.getId(), createDto);
 
@@ -298,7 +298,7 @@ class AssignmentServiceTest {
     void getSpeedGraderData_success() {
         CreateAssignmentDto createDto = new CreateAssignmentDto();
         createDto.setTitle("스피드 그레이더 테스트 과제");
-        createDto.setDueDate(LocalDateTime.now().plusDays(3).toString());
+        createDto.setDueDate(LocalDateTime.now().plusDays(3));
         createDto.setMaxScore(100);
         Long assignmentId = assignmentService.createAssignment(classRoom.getId(), instructor.getId(), createDto);
 
@@ -331,7 +331,7 @@ class AssignmentServiceTest {
     void previewSubmission_success() {
         CreateAssignmentDto createDto = new CreateAssignmentDto();
         createDto.setTitle("미리보기 테스트 과제");
-        createDto.setDueDate(LocalDateTime.now().plusDays(3).toString());
+        createDto.setDueDate(LocalDateTime.now().plusDays(3));
         Long assignmentId = assignmentService.createAssignment(classRoom.getId(), instructor.getId(), createDto);
 
         MockMultipartFile file = new MockMultipartFile(
@@ -357,7 +357,7 @@ class AssignmentServiceTest {
     void gradeStudentInSpeedGrader_submittedStudent_success() {
         CreateAssignmentDto createDto = new CreateAssignmentDto();
         createDto.setTitle("채점 테스트 과제");
-        createDto.setDueDate(LocalDateTime.now().plusDays(3).toString());
+        createDto.setDueDate(LocalDateTime.now().plusDays(3));
         createDto.setMaxScore(100);
         Long assignmentId = assignmentService.createAssignment(classRoom.getId(), instructor.getId(), createDto);
 
@@ -385,7 +385,7 @@ class AssignmentServiceTest {
     void gradeStudentInSpeedGrader_unsubmittedStudent_createsGradedRecord() {
         CreateAssignmentDto createDto = new CreateAssignmentDto();
         createDto.setTitle("미제출 채점 테스트 과제");
-        createDto.setDueDate(LocalDateTime.now().plusDays(3).toString());
+        createDto.setDueDate(LocalDateTime.now().plusDays(3));
         createDto.setMaxScore(100);
         Long assignmentId = assignmentService.createAssignment(classRoom.getId(), instructor.getId(), createDto);
 

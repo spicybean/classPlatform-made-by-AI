@@ -24,6 +24,12 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
 
     long countByClassroomIdAndStatus(Long classroomId, EnrollmentStatus status);
 
+    @Query("SELECT e.classroom.id, COUNT(e) FROM Enrollment e " +
+           "WHERE e.classroom.id IN :classroomIds AND e.status = :status " +
+           "GROUP BY e.classroom.id")
+    List<Object[]> countByClassroomIdsAndStatus(@Param("classroomIds") List<Long> classroomIds,
+                                               @Param("status") EnrollmentStatus status);
+
     @Query("SELECT e FROM Enrollment e JOIN FETCH e.student " +
            "WHERE e.classroom.id = :classroomId AND e.status = :status ORDER BY e.student.name ASC")
     List<Enrollment> findByClassroomIdAndStatusWithStudent(@Param("classroomId") Long classroomId,

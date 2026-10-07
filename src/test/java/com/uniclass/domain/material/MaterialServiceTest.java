@@ -48,6 +48,9 @@ class MaterialServiceTest {
     private MaterialRepository materialRepository;
 
     @Autowired
+    private com.uniclass.domain.material.repository.WeekSectionRepository weekSectionRepository;
+
+    @Autowired
     private jakarta.persistence.EntityManager entityManager;
 
     private User instructor;
@@ -234,4 +237,116 @@ class MaterialServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("지원하지 않는 파일 형식");
     }
+
+    @Test
+    @DisplayName("수강생이 아닌 외부 사용자가 주차별 자료 목록 조회 시 예외가 발생한다")
+    void getWeeksWithMaterials_outsider_denied() {
+        assertThatThrownBy(() -> materialService.getWeeksWithMaterials(classRoom.getId(), outsider.getId(), false))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("접근 권한이 없습니다");
+    }
+
+    @Test
+    @DisplayName("교수는 주차 정보를 휴강(HOLIDAY)으로 변경하고 날짜와 공지사항을 설정할 수 있다")
+    void updateWeekSection_holiday_success() {
+        List<WeekSectionDto> weeks = materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true);
+        Long week5Id = weeks.get(4).getId();
+
+        com.uniclass.domain.material.dto.UpdateWeekSectionDto dto = com.uniclass.domain.material.dto.UpdateWeekSectionDto.builder()
+                .title("5주차 (추석 연휴)")
+                .description("추석 명절로 인한 법정 공휴일")
+                .sectionType(com.uniclass.domain.material.entity.SectionType.HOLIDAY)
+                .startDate(java.time.LocalDate.of(2026, 10, 5))
+                .endDate(java.time.LocalDate.of(2026, 10, 9))
+                .noticeText("추석 연휴로 이번 주는 휴강입니다. 가족과 풍성한 한가위 보내세요.")
+                .isHidden(false)
+                .build();
+
+        materialService.updateWeekSection(classRoom.getId(), week5Id, dto, instructor.getId());
+
+        List<WeekSectionDto> updatedWeeks = materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true);
+        WeekSectionDto week5 = updatedWeeks.get(4);
+        assertThat(week5.getTitle()).isEqualTo("5주차 (추석 연휴)");
+        assertThat(week5.isHoliday()).isTrue();
+        assertThat(week5.getFormattedDateRange()).isEqualTo("10.05 ~ 10.09");
+        assertThat(week5.getNoticeText()).contains("추석 연휴로 이번 주는 휴강입니다");
+    }
+
+    @Test
+    @DisplayName("교수는 원클릭으로 주차를 휴강으로 전환하고 다시 일반 강의로 복구할 수 있다")
+    void toggleHoliday_toggleBackAndForth() {
+        List<WeekSectionDto> weeks = materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true);
+        Long week3Id = weeks.get(2).getId();
+
+        // 1. 일반 강의 -> 휴강 전환
+        materialService.toggleHoliday(classRoom.getId(), week3Id, "개교기념일 휴강", instructor.getId());
+        WeekSectionDto week3Holiday = materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true).get(2);
+        assertThat(week3Holiday.isHoliday()).isTrue();
+        assertThat(week3Holiday.getNoticeText()).isEqualTo("개교기념일 휴강");
+
+        // 2. 휴강 -> 일반 강의 복구
+        materialService.toggleHoliday(classRoom.getId(), week3Id, null, instructor.getId());
+        WeekSectionDto week3Lecture = materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true).get(2);
+        assertThat(week3Lecture.isHoliday()).isFalse();
+        assertThat(week3Lecture.getSectionType()).isEqualTo(com.uniclass.domain.material.entity.SectionType.LECTURE);
+    }
+
+    @Test
+    @DisplayName("교수는 16주 이후에 보강 주차(17주차)를 새롭게 추가할 수 있다")
+    void addCustomWeekSection_makeup_success() {
+        materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true); // 1~16주차 초기화
+
+        Long newSectionId = materialService.addCustomWeekSection(
+                classRoom.getId(),
+                "17주차 (보강 강의)",
+                com.uniclass.domain.material.entity.SectionType.MAKEUP,
+                instructor.getId()
+        );
+
+        List<WeekSectionDto> allWeeks = materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true);
+        assertThat(allWeeks).hasSize(17);
+
+        WeekSectionDto lastWeek = allWeeks.get(16);
+        assertThat(lastWeek.getId()).isEqualTo(newSectionId);
+        assertThat(lastWeek.getWeekNumber()).isEqualTo(17);
+        assertThat(lastWeek.getTitle()).isEqualTo("17주차 (보강 강의)");
+        assertThat(lastWeek.isMakeup()).isTrue();
+    }
+
+    @Test
+    @DisplayName("자료가 없는 빈 주차는 교수가 삭제할 수 있다")
+    void deleteWeekSection_empty_success() {
+        List<WeekSectionDto> weeks = materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true);
+        Long week16Id = weeks.get(15).getId();
+
+        materialService.deleteWeekSection(classRoom.getId(), week16Id, instructor.getId());
+
+        List<WeekSectionDto> remainingWeeks = materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true);
+        assertThat(remainingWeeks).hasSize(15);
+    }
+
+    @Test
+    @DisplayName("숨김(isHidden) 처리된 주차는 교수는 볼 수 있지만 학생에게는 노출되지 않는다")
+    void hiddenSection_filterForStudent() {
+        List<WeekSectionDto> weeks = materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true);
+        Long week2Id = weeks.get(1).getId();
+
+        com.uniclass.domain.material.dto.UpdateWeekSectionDto dto = com.uniclass.domain.material.dto.UpdateWeekSectionDto.builder()
+                .title("2주차 (준비중)")
+                .sectionType(com.uniclass.domain.material.entity.SectionType.LECTURE)
+                .isHidden(true)
+                .build();
+        materialService.updateWeekSection(classRoom.getId(), week2Id, dto, instructor.getId());
+
+        // 교수 시점: 16개 주차 전체 조회됨 (숨김 여부 포함)
+        List<WeekSectionDto> profView = materialService.getWeeksWithMaterials(classRoom.getId(), instructor.getId(), true);
+        assertThat(profView).hasSize(16);
+        assertThat(profView.get(1).isHidden()).isTrue();
+
+        // 학생 시점: 2주차가 필터링되어 15개 주차만 조회됨
+        List<WeekSectionDto> studentView = materialService.getWeeksWithMaterials(classRoom.getId(), student.getId(), false);
+        assertThat(studentView).hasSize(15);
+        assertThat(studentView.stream().noneMatch(w -> w.getId().equals(week2Id))).isTrue();
+    }
 }
+

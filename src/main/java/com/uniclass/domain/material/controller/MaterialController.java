@@ -40,6 +40,9 @@ public class MaterialController {
                                  @Valid @ModelAttribute("materialForm") CreateMaterialDto form,
                                  BindingResult bindingResult,
                                  RedirectAttributes redirectAttributes) {
+        if (userDetails == null) {
+            return "redirect:/login";
+        }
         if (bindingResult.hasErrors()) {
             redirectAttributes.addFlashAttribute("materialErrorMessage",
                     bindingResult.getAllErrors().get(0).getDefaultMessage());
@@ -60,9 +63,13 @@ public class MaterialController {
      * 강의 자료 다운로드 (수강생 및 담당 교수)
      */
     @GetMapping("/{materialId}/download")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Resource> downloadMaterial(@PathVariable("classroomId") Long classroomId,
                                                      @PathVariable("materialId") Long materialId,
                                                      @AuthenticationPrincipal CustomUserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
         boolean isInstructor = userDetails.getRole() == Role.ROLE_INSTRUCTOR;
         DownloadResult downloadResult = materialService.downloadMaterial(classroomId, materialId, userDetails.getId(), isInstructor);
 
@@ -91,6 +98,9 @@ public class MaterialController {
                                  @PathVariable("materialId") Long materialId,
                                  @AuthenticationPrincipal CustomUserDetails userDetails,
                                  RedirectAttributes redirectAttributes) {
+        if (userDetails == null) {
+            return "redirect:/login";
+        }
         try {
             materialService.deleteMaterial(classroomId, materialId, userDetails.getId());
             redirectAttributes.addFlashAttribute("materialSuccessMessage", "강의 자료가 삭제되었습니다.");

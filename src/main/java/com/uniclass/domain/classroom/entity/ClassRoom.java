@@ -68,4 +68,14 @@ public class ClassRoom {
     public void archive() {
         this.archived = true;
     }
+
+    public void unarchive() {
+        this.archived = false;
+    }
+
+    public void assertEditable() {
+        if (this.archived) {
+            throw new IllegalStateException("보관(종료)된 수업은 읽기 전용 상태입니다. 새로운 자료, 과제, 출석을 등록하거나 변경할 수 없습니다.");
+        }
+    }
 }

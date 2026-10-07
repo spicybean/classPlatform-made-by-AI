@@ -1234,20 +1234,20 @@ if (submission != null) {
 > 아래 항목들은 코드 리뷰 분석을 통해 도출되었으며, 현재 MVP 동작에는 영향이 없어 **[미반영(진행 대기)]** 상태로 기록하고 차후 고도화 스프린트에서 순차 반영합니다.
 
 1. **클라이언트-서버 간 시간대(Timezone) 불일치 위험 대비**
-   - **상태**: ⏸️ `[미반영 / 진행 대기]`
-   - **내용**: `CreateAssignmentDto`에서 `dueDate`를 `LocalDateTime.parse()`로 처리 중. 클라우드 배포 시 서버(UTC)와 브라우저(KST) 간 시차 보정을 위해 `Asia/Seoul` 전역 타임존 고정 또는 `ZonedDateTime` 도입 필요.
+   - **상태**: ✅ `[반영 완료 - 11차]`
+   - **내용**: `UniclassApplication`에 `@PostConstruct` JVM 전역 `Asia/Seoul` 타임존 설정 및 `application.yml`에 Hibernate JDBC time_zone, Jackson time-zone 병행 설정 완료.
 
 2. **제출 파일 확장자 및 MIME 화이트리스트 검증 부재**
-   - **상태**: ⏸️ `[미반영 / 진행 대기]`
-   - **내용**: 현재 20MB 용량 체크는 동작하나 파일 확장자 제한이 없음. `.exe`, `.bat`, `.sh` 등 악성 실행 스크립트 업로드를 원천 차단하기 위한 허용 확장자 화이트리스트 검증 로직 추가 권장.
+   - **상태**: ✅ `[반영 완료 - 9차]`
+   - **내용**: `FileStorageService.ALLOWED_EXTENSIONS` 화이트리스트 정책을 적용하여 위험 실행파일(.exe, .bat, .sh) 차단 및 코딩 과제 소스코드 안전 허용 완료.
 
 3. **DTO 유효성 검증의 컨트롤러-서비스 계층 분리**
-   - **상태**: ⏸️ `[미반영 / 진행 대기]`
-   - **내용**: `CreateAssignmentDto.dueDate`의 포맷 파싱 예외를 서비스가 아닌 컨트롤러 `@Valid` 바인딩 시점에서 `@DateTimeFormat`으로 포착하여 부드러운 폼 에러 피드백 제공 필요.
+   - **상태**: ✅ `[반영 완료 - 11차]`
+   - **내용**: `CreateAssignmentDto.dueDate`에 `@DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")` 및 `@NotNull`을 적용하여 Spring DataBinder 계층에서 폼 유효성 에러를 포착하도록 서비스 계층 파싱 예외 로직 분리 완료.
 
 4. **동시 채점/수정 시 덮어쓰기(Lost Update) 대비**
-   - **상태**: ⏸️ `[미반영 / 진행 대기]`
-   - **내용**: 다중 세션 또는 향후 조교(TA) 기능 도입 시 동일 제출물에 대한 동시 채점 충돌을 방지하기 위한 `@Version` 낙관적 락(Optimistic Lock) 도입 검토.
+   - **상태**: ✅ `[반영 완료 - 11차]`
+   - **내용**: `Submission` 엔티티에 JPA `@Version` 필드를 추가하고 `AssignmentController`에 `OptimisticLockingFailureException` 예외 핸들러를 구성하여 Lost Update 원천 방어 완료.
 
 ---
 
@@ -1312,5 +1312,50 @@ private static final Set<String> ALLOWED_EXTENSIONS = Collections.unmodifiableSe
 | **자가 치유 (Self-Healing)** | ✅ 완료 | Claude Sonnet 지적 5대 결함 100% 코드 반영 |
 | **전체 테스트 검증** | ✅ 통과 | Gradle Unit/Integration 18개 및 HTTP E2E ALL PASS |
 
+---
 
+## 📅 2026-09-27 (일) - 10차 전체 코드 점검, 보안 가드 및 N+1 쿼리 최적화 리뷰
 
+> **리뷰 대상**:
+> - `ClassRoomController.java`, `MaterialController.java`, `AssignmentController.java`
+> - `MaterialService.java`, `ClassRoomService.java`, `EnrollmentRepository.java`
+> - `default.html`, `MaterialServiceTest.java`
+
+---
+
+### 🚨 1. 주요 개선 및 조치 사항 (Self-Healing)
+
+1. **[P0] Controller 레이어 `@AuthenticationPrincipal` null 가드 및 `@PreAuthorize` 전면 적용**:
+   - `ClassRoomController`: `joinClassRoomPage`, `joinClassRoom`, `classRoomDetail`에 `@PreAuthorize("isAuthenticated()")` 및 `if (userDetails == null) return "redirect:/login";` 추가.
+   - `MaterialController`: `downloadMaterial`에 `@PreAuthorize("isAuthenticated()")` 및 null 방어(401 Unauthorized), `uploadMaterial` / `deleteMaterial`에 null 방어 추가.
+   - `AssignmentController`: `assignmentDetail`, `submitAssignment`, `newAssignmentPage`, `createAssignment`, `gradeSubmission`, `gradeInSpeedGrader`에 null 방어 및 안전한 인가 검증 추가.
+   - `classRoom.getInstructor() != null` 널 가드로 체이닝 NPE 원천 차단.
+
+2. **[P1] `MaterialService.getWeeksWithMaterials` 계층 심층 인가 방어 (Defense-in-Depth)**:
+   - 외부 사용자(Outsider)의 주차별 자료 목록 조회 시도시 비인가 접근 차단 예외 발생.
+   - `MaterialServiceTest`에 비수강생 접근 거부 단위 테스트(`getWeeksWithMaterials_outsider_denied`) 추가 및 검증 완료.
+
+3. **[P2] `ClassRoomService`의 수업별 학생 수 Count N+1 쿼리 최적화**:
+   - 기존: 수업 N개 목록 조회 시마다 `countByClassroomIdAndStatus`를 개별 호출하여 `1 + N`회 쿼리 발생.
+   - 개선: `EnrollmentRepository.countByClassroomIdsAndStatus` (IN 절 및 GROUP BY)를 도입하여 단 1회의 집계 쿼리로 모든 수업의 수강생 수를 일괄 수집(`Map<Long, Long>`), N+1 쿼리 완전 해소.
+
+4. **[P3] UI/UX: 글로벌 헤더 네비게이션 앵커 링크 정비**:
+   - `layout/default.html` 상단 내비게이션의 `과제 현황`, `간편 출석`을 `th:href="@{/#assignments}"`, `th:href="@{/#attendance}"`로 정비하여 서브페이지에서도 메인 앵커로 정상 이동하도록 개선.
+
+---
+
+### 📊 10차 리뷰 종합 평가
+
+| 항목 | 평가 | 세부 조치 결과 |
+| :--- | :---: | :--- |
+| **인증/인가 방어선** | 🛡️ 완벽 | 컨트롤러 전수 null 가드 + 서비스 계층 2차 심층 방어 일관성 확보 |
+| **DB 쿼리 성능** | ⚡ 최적화 | 메인 대시보드 N+1 쿼리 제거 (단일 배치 집계 쿼리 전환) |
+| **코드 안정성 & NPE** | 🛡️ 무결 | `classRoom.getInstructor()` 및 컬렉션 빈 리스트 사전 방어 완료 |
+| **테스트 검증** | ✅ 100% 통과 | `./gradlew.bat compileJava test` 전체 테스트 무결성 확인 |
+
+---
+
+## 📌 Phase 1 마일스톤 종료 및 Week 02 이전 안내
+
+- **Phase 1 MVP 개발(인증, 수업 개설/참여, 주차별 자료실, 과제 출제/제출) 및 1~10차 코드 리뷰가 성공적으로 완결**되었습니다.
+- 2026-09-28 이후 진행된 **Phase 2 고도화 작업**(잔여 과제 3건 해결, 낙관적 락/시간대 제어, 실시간 4자리 간편 출석체크, 11차~12차 코드 리뷰)은 [Week_02.md](file:///d:/Gemini/project_one/PLAN/CodeReview/Week_02.md)에서 계속 이어집니다.

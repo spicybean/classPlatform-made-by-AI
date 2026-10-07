@@ -3,20 +3,65 @@
 <body>
 <div th:fragment="content" class="space-y-6">
 
-    <!-- 성공 알림 배너 (개설 또는 참가 완료 시) -->
-    <div id="alertSuccessBanner" th:if="${alertSuccess}" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center justify-between shadow-sm transition-opacity duration-500">
-        <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    <!-- 알림 플로팅 토스트 (성공/오류 - 레이아웃 시프트 없음) -->
+    <div class="fixed top-20 right-4 sm:right-6 z-50 flex flex-col gap-3 max-w-sm sm:max-w-md w-full pointer-events-none">
+        <div id="alertSuccessBanner" th:if="${alertSuccess}"
+             class="pointer-events-auto p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-emerald-300 text-emerald-800 text-sm font-medium flex items-center justify-between shadow-xl transition-all duration-500 transform translate-y-0">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-emerald-500/30">
+                    <i class="fa-solid fa-check"></i>
+                </div>
+                <div>
+                    <p class="font-extrabold text-slate-900 text-xs sm:text-sm" th:text="${alertSuccess}">알림 메시지</p>
+                    <p class="text-[11px] text-emerald-600 mt-0.5">정상적으로 처리되었습니다.</p>
+                </div>
             </div>
-            <p class="font-bold text-slate-900" th:text="${alertSuccess}">알림 메시지</p>
+            <button type="button" onclick="document.getElementById('alertSuccessBanner').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
         </div>
-        <button type="button" onclick="document.getElementById('alertSuccessBanner').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-emerald-100/50 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
+
+        <div id="alertErrorBanner" th:if="${errorMessage}"
+             class="pointer-events-auto p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-rose-300 text-rose-800 text-sm font-medium flex items-center justify-between shadow-xl transition-all duration-500 transform translate-y-0">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-rose-500 text-white flex items-center justify-center flex-shrink-0 shadow-md shadow-rose-500/30">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <div>
+                    <p class="font-extrabold text-rose-900 text-xs sm:text-sm" th:text="${errorMessage}">오류 메시지</p>
+                    <p class="text-[11px] text-rose-600 mt-0.5">요청을 다시 확인해 주세요.</p>
+                </div>
+            </div>
+            <button type="button" onclick="document.getElementById('alertErrorBanner').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
     </div>
 
-    <!-- 수업 헤더 배너 -->
+    <!-- 🔒 보관(종료)된 수업 전역 경고 배너 -->
+    <div th:if="${classroom.archived}" class="p-4 rounded-2xl bg-amber-500 text-white font-bold flex items-center justify-between shadow-lg">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-lg flex-shrink-0">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <div>
+                <p class="text-base tracking-tight">이 수업은 학기 종료로 인해 [보관(Archive) - 읽기 전용] 상태입니다.</p>
+                <p class="text-xs text-amber-100 font-normal mt-0.5">기존 강의 자료, 과제, 출석 기록을 조회할 수 있으나 새로운 제출, 채점, 자료 등록은 차단됩니다.</p>
+            </div>
+        </div>
+        <div th:if="${isInstructor}">
+            <form th:action="@{/classes/{id}/unarchive(id=${classroom.id})}" method="post" class="inline">
+                <button type="submit" onclick="return confirm('수업 보관을 해제하고 정상 운영 상태로 되돌리시겠습니까?');"
+                        class="px-4 py-2 rounded-xl bg-white text-amber-900 hover:bg-amber-50 font-bold text-xs shadow transition active:scale-95">
+                    보관 해제
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 1. 통일된 Course Header (수업 상단 정보 영역) -->
+    <!-- ========================================== -->
     <div class="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-sm">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
@@ -29,12 +74,15 @@
                           th:text="${classroom.semester}">
                         2026-1학기
                     </span>
-                    <span th:if="${classroom.archived}" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                        📁 보관(종료)된 수업
+                    <span th:if="${classroom.archived}" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                        <i class="fa-solid fa-box-archive mr-1"></i>보관됨 (Archived)
+                    </span>
+                    <span th:unless="${classroom.archived}" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block mr-1"></span>운영 중 (Active)
                     </span>
                 </div>
                 <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight" th:text="${classroom.name}">
-                    자료구조 및 알고리즘
+                    자료구조 및 실습
                 </h1>
                 <p class="text-sm text-slate-500 mt-2 flex items-center gap-2">
                     <span>담당: <strong class="text-slate-700" th:text="${classroom.instructor.name}">홍길동</strong> 교수님</span>
@@ -43,337 +91,953 @@
                 </p>
             </div>
 
-            <!-- 우측 영역: 교수 시점 초대 코드 영역 / 학생 시점 수강 상태 영역 -->
-            <div th:if="${isInstructor}" class="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <div>
-                    <span class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">학생 참여 초대 코드</span>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span id="inviteCodeText"
-                              class="font-mono text-xl font-extrabold text-blue-600 tracking-widest bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm"
-                              th:text="${classroom.inviteCode}">
-                            CS101A
-                        </span>
-                        <button type="button"
-                                onclick="copyInviteCode()"
-                                title="초대 코드 복사"
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition active:scale-95">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/>
-                            </svg>
-                            <span id="copyBtnText">복사</span>
-                        </button>
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- 교수 시점: 초대 코드 복사 박스 -->
+                <div th:if="${isInstructor}" class="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div>
+                        <span class="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">학생 참여 초대 코드</span>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span id="inviteCodeText"
+                                  class="font-mono text-xl font-extrabold text-blue-600 tracking-widest bg-white px-3 py-1 rounded-lg border border-slate-200 shadow-sm"
+                                  th:text="${classroom.inviteCode}">
+                                CS101A
+                            </span>
+                            <button type="button"
+                                    onclick="copyInviteCode()"
+                                    title="초대 코드 복사"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition active:scale-95">
+                                <i class="fa-regular fa-copy"></i>
+                                <span id="copyBtnText">복사</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- 학생 시점: 수강 중 뱃지 표시 -->
-            <div th:unless="${isInstructor}" class="flex items-center gap-3 bg-emerald-50/60 p-4 rounded-xl border border-emerald-200/80">
-                <div class="flex items-center gap-2.5">
-                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <div>
-                        <span class="block text-[11px] font-bold text-emerald-800 uppercase tracking-wider">수강 상태</span>
-                        <span class="font-bold text-sm text-emerald-900">정상 수강 중 (Enrolled)</span>
+                <!-- 학생 시점: 수강 상태 뱃지 -->
+                <div th:unless="${isInstructor}" class="flex items-center gap-3 bg-emerald-50/60 p-4 rounded-xl border border-emerald-200/80">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <div>
+                            <span class="block text-[11px] font-bold text-emerald-800 uppercase tracking-wider">수강 상태</span>
+                            <span class="font-bold text-sm text-emerald-900">정상 수강 중 (Enrolled)</span>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 수업 소개 설명글 (있을 경우) -->
-        <div th:if="${classroom.description}" class="mt-6 pt-6 border-t border-slate-100 text-sm text-slate-600 leading-relaxed whitespace-pre-line"
+        <div th:if="${classroom.description}" class="mt-5 pt-5 border-t border-slate-100 text-sm text-slate-600 leading-relaxed whitespace-pre-line"
              th:text="${classroom.description}">
             수업 소개 내용
         </div>
     </div>
 
-    <!-- 자료 등록/삭제 알림 배너 -->
-    <div id="materialSuccessBanner" th:if="${materialSuccessMessage}" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-medium flex items-center justify-between shadow-sm transition-opacity duration-500">
-        <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-            </div>
-            <p class="font-bold text-slate-900" th:text="${materialSuccessMessage}">자료 알림 메시지</p>
-        </div>
-        <button type="button" onclick="document.getElementById('materialSuccessBanner').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-emerald-100/50 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-    </div>
+    <!-- ========================================== -->
+    <!-- 2. Course Navigation Tabs (수업 앱 탭 네비게이션) -->
+    <!-- ========================================== -->
+    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <nav class="flex border-b border-slate-200 overflow-x-auto text-sm font-semibold scrollbar-none divide-x divide-slate-100">
+            <!-- 1. 개요 (Overview) -->
+            <a th:href="@{/classes/{id}(id=${classroom.id}, tab='overview')}"
+               th:classappend="${currentTab == 'overview'} ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/40' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
+               class="px-5 py-3.5 inline-flex items-center gap-2 whitespace-nowrap transition">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>개요</span>
+            </a>
 
-    <div id="materialErrorBanner" th:if="${materialErrorMessage}" class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-medium flex items-center justify-between shadow-sm transition-opacity duration-500">
-        <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center flex-shrink-0">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            </div>
-            <p class="font-bold" th:text="${materialErrorMessage}">자료 오류 메시지</p>
-        </div>
-        <button type="button" onclick="document.getElementById('materialErrorBanner').remove()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-rose-100/50 transition">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-    </div>
+            <!-- 2. 강의자료 (Materials) -->
+            <a th:href="@{/classes/{id}(id=${classroom.id}, tab='materials')}"
+               th:classappend="${currentTab == 'materials'} ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
+               class="px-5 py-3.5 inline-flex items-center gap-2 whitespace-nowrap transition">
+                <i class="fa-solid fa-folder-open"></i>
+                <span>강의자료</span>
+            </a>
 
-    <!-- 메인 대시보드 그리드: 좌측(강의 자료실) 2열 + 우측(과제/출석/정보) 1열 -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- 3. 과제 (Assignments) -->
+            <a th:href="@{/classes/{id}(id=${classroom.id}, tab='assignments')}"
+               th:classappend="${currentTab == 'assignments'} ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
+               class="px-5 py-3.5 inline-flex items-center gap-2 whitespace-nowrap transition">
+                <i class="fa-solid fa-file-pen"></i>
+                <span>과제</span>
+                <span th:if="${assignments != null && !assignments.isEmpty()}"
+                      class="px-1.5 py-0.5 rounded-full text-[11px] bg-slate-200 text-slate-700"
+                      th:text="${assignments.size()}">0</span>
+            </a>
 
-        <!-- 좌측: 주차별 강의 자료실 (2열 차지) -->
-        <div class="lg:col-span-2 space-y-6">
-            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <h2 class="text-xl font-bold text-slate-900">📚 주차별 강의 자료실</h2>
-                            <span class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200">1~16주차</span>
+            <!-- 4. 출석 (Attendance) -->
+            <a th:href="@{/classes/{id}(id=${classroom.id}, tab='attendance')}"
+               th:classappend="${currentTab == 'attendance'} ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
+               class="px-5 py-3.5 inline-flex items-center gap-2 whitespace-nowrap transition">
+                <i class="fa-solid fa-user-check"></i>
+                <span>출석</span>
+            </a>
+
+            <!-- 5. 성적 (Grades) -->
+            <a th:href="@{/classes/{id}(id=${classroom.id}, tab='grades')}"
+               th:classappend="${currentTab == 'grades'} ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
+               class="px-5 py-3.5 inline-flex items-center gap-2 whitespace-nowrap transition">
+                <i class="fa-solid fa-table-list"></i>
+                <span>성적부</span>
+            </a>
+
+            <!-- 6. 수강생 (Members) -->
+            <a th:href="@{/classes/{id}(id=${classroom.id}, tab='members')}"
+               th:classappend="${currentTab == 'members'} ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
+               class="px-5 py-3.5 inline-flex items-center gap-2 whitespace-nowrap transition">
+                <i class="fa-solid fa-users"></i>
+                <span>수강생</span>
+                <span th:if="${enrolledStudents != null}"
+                      class="px-1.5 py-0.5 rounded-full text-[11px] bg-slate-200 text-slate-700"
+                      th:text="${enrolledStudents.size()}">0</span>
+            </a>
+
+            <!-- 7. 수업설정 (Settings - 교수 전용) -->
+            <a th:if="${isInstructor}"
+               th:href="@{/classes/{id}(id=${classroom.id}, tab='settings')}"
+               th:classappend="${currentTab == 'settings'} ? 'border-b-2 border-blue-600 text-blue-600 bg-blue-50/30' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'"
+               class="px-5 py-3.5 inline-flex items-center gap-2 whitespace-nowrap transition ml-auto">
+                <i class="fa-solid fa-gear"></i>
+                <span>수업 설정</span>
+            </a>
+        </nav>
+
+        <!-- ========================================== -->
+        <!-- 3. 탭별 메인 콘텐츠 영역 -->
+        <!-- ========================================== -->
+        <div class="p-6 sm:p-8">
+
+            <!-- ---------------------------------------- -->
+            <!-- [TAB 1] 개요 (Overview)                 -->
+            <!-- ---------------------------------------- -->
+            <div th:if="${currentTab == 'overview'}" class="space-y-8">
+                <!-- 상단 핵심 메트릭 카드 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="p-5 rounded-2xl bg-blue-50/50 border border-blue-100 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xl shadow-md">
+                            <i class="fa-solid fa-users"></i>
                         </div>
-                        <p class="text-xs text-slate-500 mt-1">강의 슬라이드(PDF, PPT), 예제 코드(ZIP) 등을 다운로드할 수 있습니다.</p>
+                        <div>
+                            <span class="text-xs font-bold text-slate-500 block">수강 인원</span>
+                            <span class="text-2xl font-black text-slate-900" th:text="${enrolledStudents.size()} + '명'">0명</span>
+                        </div>
                     </div>
 
-                    <!-- 교수 전용: 자료 업로드 버튼 -->
-                    <div th:if="${isInstructor and not classroom.archived}">
-                        <button type="button" onclick="toggleUploadModal(true)"
-                                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 hover:shadow-lg transition active:scale-95">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                            <span>새 자료 업로드</span>
+                    <div class="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow-md">
+                            <i class="fa-solid fa-file-pen"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-500 block">출제된 과제</span>
+                            <span class="text-2xl font-black text-slate-900" th:text="${assignments.size()} + '건'">0건</span>
+                        </div>
+                    </div>
+
+                    <div class="p-5 rounded-2xl bg-emerald-50/50 border border-emerald-100 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center text-xl shadow-md">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-500 block">출석 세션</span>
+                            <span class="text-2xl font-black text-slate-900" th:text="${attendanceSessions.size()} + '회차'">0회차</span>
+                        </div>
+                    </div>
+
+                    <!--/* 교수 전용: 학급 평균 성적 */-->
+                    <div th:if="${isInstructor}" class="p-5 rounded-2xl bg-purple-50/50 border border-purple-100 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-purple-600 text-white flex items-center justify-center text-xl shadow-md">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-500 block">학급 평균 성적</span>
+                            <span class="text-2xl font-black text-slate-900"
+                                  th:text="${gradeBook != null and gradeBook.classAverageScore != null} ? ${gradeBook.classAverageScore} + '점' : '-'">-</span>
+                        </div>
+                    </div>
+
+                    <!--/* 학생 전용: 내 종합 성적 (본인 성적만 확인) */-->
+                    <div th:unless="${isInstructor}" class="p-5 rounded-2xl bg-purple-50/50 border border-purple-100 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-purple-600 text-white flex items-center justify-center text-xl shadow-md">
+                            <i class="fa-solid fa-award"></i>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-slate-500 block">내 종합 성적</span>
+                            <span class="text-2xl font-black text-slate-900"
+                                  th:text="${gradeBook != null and not #lists.isEmpty(gradeBook.studentRows)} ? ${gradeBook.studentRows[0].totalCompositeScore} + '점 (' + ${gradeBook.studentRows[0].letterGrade} + ')' : '-'">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2열 그리드: 다가오는 과제 vs 최신 자료실 -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- 좌측: 다가오는 과제 -->
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-fire text-rose-500"></i>
+                                <span>진행 중인 과제</span>
+                            </h2>
+                            <a th:href="@{/classes/{id}(id=${classroom.id}, tab='assignments')}" class="text-xs font-bold text-blue-600 hover:underline">전체보기 &rarr;</a>
+                        </div>
+
+                        <div th:if="${assignments.isEmpty()}" class="p-8 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center text-slate-500 text-sm">
+                            현재 등록된 과제가 없습니다.
+                        </div>
+
+                        <div th:unless="${assignments.isEmpty()}" class="space-y-3">
+                            <div th:each="a, stat : ${assignments}" th:if="${stat.index < 3}"
+                                 class="p-4 rounded-xl border border-slate-200 hover:border-blue-400 bg-white shadow-sm transition">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-1">
+                                            <span th:if="${a.expired}" class="px-2 py-0.5 rounded text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-200">마감</span>
+                                            <span th:unless="${a.expired}" class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">진행중</span>
+                                            <span class="text-xs text-slate-500" th:text="${a.formattedDueDate}">2026-10-10</span>
+                                        </div>
+                                        <h3 class="font-bold text-slate-900 text-sm hover:text-blue-600">
+                                            <a th:href="@{/classes/{cId}/assignments/{aId}(cId=${classroom.id}, aId=${a.id})}" th:text="${a.title}">과제 제목</a>
+                                        </h3>
+                                    </div>
+                                    <a th:href="@{/classes/{cId}/assignments/{aId}(cId=${classroom.id}, aId=${a.id})}"
+                                       class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-600 hover:text-white text-slate-700 text-xs font-bold transition">
+                                        상세보기
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 우측: 빠른 액션 & 공지/출석 현황 -->
+                    <div class="space-y-4">
+                        <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-bolt text-amber-500"></i>
+                            <span>빠른 실행 & 바로가기</span>
+                        </h2>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <a th:href="@{/classes/{id}(id=${classroom.id}, tab='materials')}"
+                               class="p-4 rounded-xl bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 transition text-left">
+                                <i class="fa-solid fa-folder-open text-blue-600 text-lg mb-2 block"></i>
+                                <span class="font-bold text-sm text-slate-900 block">강의자료실</span>
+                                <span class="text-xs text-slate-500">1~16주차 교안 다운로드</span>
+                            </a>
+
+                            <a th:href="@{/classes/{id}/attendance(id=${classroom.id})}"
+                               class="p-4 rounded-xl bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-300 transition text-left">
+                                <i class="fa-solid fa-qrcode text-amber-600 text-lg mb-2 block"></i>
+                                <span class="font-bold text-sm text-slate-900 block">간편 출석체크</span>
+                                <span class="text-xs text-slate-500">4자리 실시간 인증</span>
+                            </a>
+
+                            <a th:href="@{/classes/{id}(id=${classroom.id}, tab='grades')}"
+                               class="p-4 rounded-xl bg-slate-50 hover:bg-purple-50 border border-slate-200 hover:border-purple-300 transition text-left">
+                                <i class="fa-solid fa-award text-purple-600 text-lg mb-2 block"></i>
+                                <span class="font-bold text-sm text-slate-900 block">성적 및 피드백</span>
+                                <span class="text-xs text-slate-500">종합 평가 결과 확인</span>
+                            </a>
+
+                            <a th:if="${isInstructor && !classroom.archived}" th:href="@{/classes/{id}/assignments/new(id=${classroom.id})}"
+                               class="p-4 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 transition text-left">
+                                <i class="fa-solid fa-plus text-emerald-600 text-lg mb-2 block"></i>
+                                <span class="font-bold text-sm text-slate-900 block">새 과제 출제</span>
+                                <span class="text-xs text-slate-500">마감기한/배점 설정</span>
+                            </a>
+
+                            <a th:if="${!isInstructor}" th:href="@{/classes/{id}(id=${classroom.id}, tab='attendance')}"
+                               class="p-4 rounded-xl bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 transition text-left">
+                                <i class="fa-solid fa-chart-line text-emerald-600 text-lg mb-2 block"></i>
+                                <span class="font-bold text-sm text-slate-900 block">내 출석률 확인</span>
+                                <span class="text-xs text-slate-500"
+                                      th:text="${studentAttendanceSummary != null} ? ${studentAttendanceSummary.attendanceRate} + '%' : '100%'">100%</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ---------------------------------------- -->
+            <!-- [TAB 2] 강의자료실 (Materials)          -->
+            <!-- ---------------------------------------- -->
+            <div th:if="${currentTab == 'materials'}" class="space-y-6">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">주차별 커리큘럼 및 강의자료</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">주차별 교안 다운로드 및 학사 일정(휴강/시험/보강)을 유연하게 관리합니다.</p>
+                    </div>
+                    <div th:if="${isInstructor && !classroom.archived}" class="flex items-center gap-2">
+                        <button type="button" onclick="openAddSectionModal()"
+                                class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+                            <i class="fa-solid fa-plus text-slate-500"></i>
+                            <span>주차/보강 추가</span>
+                        </button>
+                        <button type="button" onclick="openUploadModal(1)"
+                                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow transition active:scale-95">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span>자료 업로드</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- 주차별 목록 아코디언/카드 섹션 -->
-                <div class="mt-6 space-y-4">
-                    <div th:each="week : ${weeks}" class="border border-slate-200 rounded-xl overflow-hidden transition">
-                        <!-- 주차 헤더 -->
-                        <div class="bg-slate-50/80 px-4 py-3 flex items-center justify-between">
-                            <div class="flex items-center gap-2.5">
-                                <span class="w-7 h-7 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs"
-                                      th:text="${week.weekNumber}">1</span>
-                                <span class="font-bold text-sm text-slate-900" th:text="${week.title}">1주차</span>
+                <!-- 유연한 주차 아코디언 목록 -->
+                <div class="space-y-4">
+                    <div th:each="week : ${weeks}"
+                         th:with="isCurrentWeek=${week.startDate != null and week.endDate != null and !T(java.time.LocalDate).now().isBefore(week.startDate) and !T(java.time.LocalDate).now().isAfter(week.endDate)}"
+                         class="rounded-2xl overflow-hidden shadow-sm bg-white transition"
+                         th:classappend="${isCurrentWeek} ? 'border-2 border-blue-500 shadow-md ring-4 ring-blue-50' : 'border border-slate-200'">
+                        <div class="px-5 py-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition"
+                             th:classappend="${isCurrentWeek} ? 'bg-blue-50/40 border-blue-200' : 'bg-slate-50/80 border-slate-200/80'">
+                            <div class="flex items-center gap-3">
+                                <span class="w-8 h-8 rounded-lg font-extrabold text-xs flex items-center justify-center shrink-0 shadow-sm"
+                                      th:classappend="${isCurrentWeek} ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'"
+                                      th:text="${week.weekNumber} + 'W'">1W</span>
+                                <div>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h3 class="font-bold text-slate-900 text-sm" th:text="${week.title}">1주차</h3>
+
+                                        <!-- 🌟 이번 주 강의 뱃지 -->
+                                        <span th:if="${isCurrentWeek}" class="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-blue-600 text-white flex items-center gap-1 shadow-sm">
+                                            <i class="fa-solid fa-star text-[10px] text-amber-300"></i> 이번 주 강의
+                                        </span>
+
+                                        <!-- 유형별 뱃지 -->
+                                        <span th:if="${week.holiday}" class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-700 border border-amber-200 flex items-center gap-1">
+                                            <i class="fa-solid fa-umbrella-beach"></i> 휴강
+                                        </span>
+                                        <span th:if="${week.exam}" class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-purple-100 text-purple-700 border border-purple-200 flex items-center gap-1">
+                                            <i class="fa-solid fa-pen-to-square"></i> 시험
+                                        </span>
+                                        <span th:if="${week.makeup}" class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                                            <i class="fa-solid fa-clock-rotate-left"></i> 보강
+                                        </span>
+                                        <span th:if="${week.sectionType.name() == 'SPECIAL'}" class="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1">
+                                            <i class="fa-solid fa-bullhorn"></i> 특강
+                                        </span>
+
+                                        <!-- 날짜 범위 -->
+                                        <span th:if="${!week.formattedDateRange.isEmpty()}" class="text-xs font-mono font-semibold"
+                                              th:classappend="${isCurrentWeek} ? 'text-blue-700 font-bold' : 'text-slate-400'"
+                                              th:text="'(' + ${week.formattedDateRange} + ')'">(03.02 ~ 03.08)</span>
+
+                                        <!-- 숨김 상태 (교수 전용) -->
+                                        <span th:if="${isInstructor && week.hidden}" class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-slate-200 text-slate-600">
+                                            숨김중
+                                        </span>
+                                    </div>
+                                    <p th:if="${week.description}" class="text-xs text-slate-500 mt-0.5" th:text="${week.description}"></p>
+                                </div>
                             </div>
-                            <span class="text-xs text-slate-400 font-medium"
-                                  th:text="${#lists.size(week.materials)} + '개 자료'">0개 자료</span>
+
+                            <!-- 우측 액션 버튼들 -->
+                            <div class="flex items-center gap-2 self-end sm:self-center">
+                                <span class="text-xs text-slate-400 mr-1" th:text="${week.materials.size()} + '개 파일'">0개 파일</span>
+
+                                <div th:if="${isInstructor && !classroom.archived}" class="flex items-center gap-1.5">
+                                    <!-- 원클릭 휴강 전환 / 복구 버튼 -->
+                                    <form th:action="@{/classes/{cId}/sections/{sId}/toggle-holiday(cId=${classroom.id}, sId=${week.id})}" method="post" class="inline">
+                                        <button type="submit"
+                                                th:title="${week.holiday} ? '일반 강의 주차로 복구' : '휴강 주차로 원클릭 전환'"
+                                                th:class="${week.holiday} ? 'px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 transition' : 'px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 hover:bg-amber-100 transition'">
+                                            <span th:text="${week.holiday} ? '강의 복구' : '휴강 전환'">휴강 전환</span>
+                                        </button>
+                                    </form>
+
+                                    <!-- 주차 상세 설정 모달 버튼 -->
+                                    <button type="button"
+                                            th:data-id="${week.id}"
+                                            th:data-title="${week.title}"
+                                            th:data-desc="${week.description}"
+                                            th:data-type="${week.sectionType.name()}"
+                                            th:data-start="${week.startDate}"
+                                            th:data-end="${week.endDate}"
+                                            th:data-notice="${week.noticeText}"
+                                            th:data-hidden="${week.hidden}"
+                                            onclick="openSectionEditModal(this)"
+                                            class="px-2.5 py-1 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-200/80 transition"
+                                            title="주차 유형, 날짜, 공지문구 수정">
+                                        <i class="fa-solid fa-gear"></i>
+                                    </button>
+
+                                    <!-- 주차 삭제 버튼 (자료 0개일 때) -->
+                                    <form th:if="${week.materials.isEmpty()}" th:action="@{/classes/{cId}/sections/{sId}/delete(cId=${classroom.id}, sId=${week.id})}" method="post" class="inline">
+                                        <button type="submit" onclick="return confirm('이 주차 섹션을 삭제하시겠습니까?');"
+                                                class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                                                title="주차 삭제">
+                                            <i class="fa-regular fa-trash-can"></i>
+                                        </button>
+                                    </form>
+
+                                    <!-- 자료 추가 버튼 -->
+                                    <button type="button"
+                                            th:onclick="'openUploadModal(' + ${week.weekNumber} + ')'"
+                                            class="px-2.5 py-1 rounded-lg text-xs font-bold text-blue-600 hover:bg-blue-50 transition">
+                                        + 자료
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- 주차 내 등록된 자료 리스트 -->
-                        <div class="p-4 bg-white">
-                            <!-- 자료가 없을 때 -->
-                            <div th:if="${#lists.isEmpty(week.materials)}" class="text-center py-4 text-xs text-slate-400">
-                                등록된 강의 자료가 없습니다.
+                        <!-- 1. 휴강(HOLIDAY) 안내 배너 -->
+                        <div th:if="${week.holiday}" class="p-5 bg-amber-50/50 border-b border-amber-100 text-center">
+                            <div class="w-9 h-9 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-1.5">
+                                <i class="fa-solid fa-umbrella-beach text-base"></i>
                             </div>
+                            <h4 class="font-extrabold text-slate-800 text-xs sm:text-sm">공휴일 / 휴강 주간</h4>
+                            <p class="text-xs text-slate-600 mt-1 max-w-lg mx-auto"
+                               th:text="${week.noticeText != null && !week.noticeText.isBlank()} ? ${week.noticeText} : '공휴일 또는 학사 일정으로 인해 이번 주는 수업이 진행되지 않습니다.'">
+                                공휴일 또는 학사 일정으로 인해 수업이 진행되지 않습니다.
+                            </p>
+                        </div>
 
-                            <!-- 자료 목록 -->
-                            <ul th:if="${not #lists.isEmpty(week.materials)}" class="divide-y divide-slate-100">
-                                <li th:each="m : ${week.materials}" class="py-3 first:pt-0 last:pb-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group">
-                                    <div class="flex items-start gap-3">
-                                        <!-- 확장자 아이콘 배지 -->
-                                        <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs uppercase flex-shrink-0 mt-0.5"
-                                             th:classappend="${m.fileExtension == 'pdf' ? 'bg-rose-50 text-rose-600 border border-rose-200' :
-                                                               (m.fileExtension == 'ppt' or m.fileExtension == 'pptx' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                                               (m.fileExtension == 'zip' ? 'bg-purple-50 text-purple-600 border border-purple-200' :
-                                                               (m.fileExtension == 'doc' or m.fileExtension == 'docx' ? 'bg-blue-50 text-blue-600 border border-blue-200' :
-                                                               (m.fileExtension == 'xls' or m.fileExtension == 'xlsx' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-slate-100 text-slate-600'))))}">
-                                            <span th:text="${m.fileExtension ?: 'FILE'}">PDF</span>
-                                        </div>
-                                        <div>
-                                            <div class="flex items-center gap-2">
-                                                <h4 class="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition" th:text="${m.title}">자료 제목</h4>
-                                                <!-- 예약/비공개 뱃지 (교수 시점) -->
-                                                <span th:if="${not m.isPublished}" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                                                    🔒 비공개
-                                                </span>
-                                                <span th:if="${m.releaseAt != null and not m.isAvailableNow}" class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                                    ⏰ 예약 공개 대기
-                                                </span>
-                                            </div>
-                                            <p th:if="${m.description}" class="text-xs text-slate-500 mt-0.5" th:text="${m.description}">자료 설명</p>
-                                            <div class="flex items-center gap-3 text-[11px] text-slate-400 mt-1">
-                                                <span th:text="${m.originalFilename}">slides.pdf</span>
-                                                <span>·</span>
-                                                <span th:text="${m.formattedFileSize}">2.4 MB</span>
-                                                <span>·</span>
-                                                <span th:text="'다운로드 ' + ${m.downloadCount} + '회'">다운로드 0회</span>
-                                            </div>
-                                        </div>
+                        <!-- 2. 시험(EXAM) 안내 배너 -->
+                        <div th:if="${week.exam}" class="p-5 bg-purple-50/50 border-b border-purple-100 text-center">
+                            <div class="w-9 h-9 mx-auto rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mb-1.5">
+                                <i class="fa-solid fa-pen-to-square text-base"></i>
+                            </div>
+                            <h4 class="font-extrabold text-slate-800 text-xs sm:text-sm">시험 주간 (Exam Week)</h4>
+                            <p class="text-xs text-slate-600 mt-1 max-w-lg mx-auto"
+                               th:text="${week.noticeText != null && !week.noticeText.isBlank()} ? ${week.noticeText} : '중간/기말고사 시험 일정 및 시험 장소를 확인하세요.'">
+                                시험 일정 및 범위를 확인하세요.
+                            </p>
+                        </div>
+
+                        <!-- 3. 해당 주차 자료 목록 -->
+                        <div class="divide-y divide-slate-100">
+                            <div th:if="${week.materials.isEmpty()}" class="p-4 text-center text-xs text-slate-400">
+                                <span th:if="${week.holiday}">등록된 대체 자료가 없습니다. (휴강 주간)</span>
+                                <span th:unless="${week.holiday}">등록된 강의 자료가 없습니다.</span>
+                            </div>
+                            <div th:each="m : ${week.materials}" class="p-4 flex items-center justify-between hover:bg-slate-50/50 transition">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-sm">
+                                        <i class="fa-solid fa-file"></i>
                                     </div>
-
-                                    <!-- 버튼 영역 (다운로드 / 교수 전용 삭제) -->
-                                    <div class="flex items-center gap-2 sm:self-center self-end">
-                                        <a th:href="@{'/classes/' + ${classroom.id} + '/materials/' + ${m.id} + '/download'}"
-                                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 text-xs font-semibold border border-slate-200 hover:border-blue-200 transition">
-                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                                            <span>다운로드</span>
-                                        </a>
-
-                                        <!-- 교수 전용 삭제 버튼 -->
-                                        <form th:if="${isInstructor}" th:action="@{'/classes/' + ${classroom.id} + '/materials/' + ${m.id} + '/delete'}" method="post"
-                                              onsubmit="return confirm('이 자료를 삭제하시겠습니까?');" class="inline m-0">
-                                            <button type="submit" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition" title="자료 삭제">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                            </button>
-                                        </form>
+                                    <div>
+                                        <div class="flex items-center gap-2">
+                                            <a th:href="@{/classes/{cId}/materials/{mId}/download(cId=${classroom.id}, mId=${m.id})}"
+                                               class="font-bold text-sm text-slate-900 hover:text-blue-600"
+                                               th:text="${m.title}">자료 제목</a>
+                                            <span th:unless="${m.published}" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                                🔒 예약공개 (<span th:text="${m.releaseAt}">날짜</span>)
+                                            </span>
+                                        </div>
+                                        <p class="text-xs text-slate-400 mt-0.5">
+                                            <span th:text="${m.originalFilename}">file.pdf</span> ·
+                                            <span th:text="${m.formattedFileSize}">2.4MB</span> ·
+                                            <span th:text="'다운로드 ' + ${m.downloadCount} + '회'">다운로드 0회</span>
+                                        </p>
                                     </div>
-                                </li>
-                            </ul>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <a th:href="@{/classes/{cId}/materials/{mId}/download(cId=${classroom.id}, mId=${m.id})}"
+                                       class="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white text-xs font-bold transition">
+                                        다운로드
+                                    </a>
+                                    <form th:if="${isInstructor && !classroom.archived}" th:action="@{/classes/{cId}/materials/{mId}/delete(cId=${classroom.id}, mId=${m.id})}" method="post" class="inline">
+                                        <button type="submit" onclick="return confirm('이 자료를 삭제하시겠습니까?');"
+                                                class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition">
+                                            <i class="fa-regular fa-trash-can"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- ---------------------------------------- -->
+            <!-- [TAB 3] 과제 (Assignments)              -->
+            <!-- ---------------------------------------- -->
+            <div th:if="${currentTab == 'assignments'}" class="space-y-6">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">과제 목록 및 제출 현황</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">마감 기한을 준수하여 과제를 제출하고 채점 피드백을 확인하세요.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <!-- 교수용 버튼 -->
+                        <div th:if="${isInstructor}" class="flex items-center gap-2">
+                            <a th:href="@{/classes/{id}/export/submissions-zip(id=${classroom.id})}"
+                               class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
+                               title="전체 과제 제출물을 폴더별 ZIP으로 다운로드">
+                                <i class="fa-solid fa-file-zipper text-purple-600"></i>
+                                <span>제출물 전체 ZIP</span>
+                            </a>
+                            <a th:if="${!classroom.archived}" th:href="@{/classes/{id}/assignments/new(id=${classroom.id})}"
+                               class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow transition active:scale-95">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>새 과제 출제</span>
+                            </a>
+                        </div>
+
+                        <!-- 학생용 버튼 -->
+                        <div th:unless="${isInstructor}">
+                            <a th:href="@{/classes/{id}/export/portfolio-zip(id=${classroom.id})}"
+                               class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
+                               title="내 제출 파일 및 교수 피드백 요약본을 ZIP으로 다운로드">
+                                <i class="fa-solid fa-file-zipper text-blue-600"></i>
+                                <span>내 과제 포트폴리오 ZIP</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div th:if="${assignments.isEmpty()}" class="p-12 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center text-slate-500 text-sm">
+                    <i class="fa-regular fa-folder-open text-3xl text-slate-400 mb-2 block"></i>
+                    아직 출제된 과제가 없습니다.
+                </div>
+
+                <div th:unless="${assignments.isEmpty()}" class="space-y-4">
+                    <div th:each="a : ${assignments}" class="p-5 rounded-2xl border border-slate-200 bg-white hover:border-blue-300 shadow-sm transition">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <div class="flex items-center gap-2 mb-2 flex-wrap">
+                                    <span th:if="${a.expired}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">마감</span>
+                                    <span th:unless="${a.expired}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200">진행중</span>
+
+                                    <!-- 학생 시점: 본인 제출 여부 뱃지 -->
+                                    <th:block th:unless="${isInstructor}">
+                                        <span th:if="${a.submitted}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1 shadow-sm">
+                                            <i class="fa-solid fa-check text-[10px]"></i>제출 완료
+                                        </span>
+                                        <span th:unless="${a.submitted}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 flex items-center gap-1">
+                                            <i class="fa-solid fa-circle-exclamation text-[10px]"></i>미제출
+                                        </span>
+                                    </th:block>
+
+                                    <span class="text-xs text-slate-500 font-semibold">마감: <strong th:text="${a.formattedDueDate}">2026-10-10</strong></span>
+                                    <span class="text-slate-300">·</span>
+                                    <span class="text-xs text-slate-500 font-semibold" th:text="'배점 ' + ${a.maxScore} + '점'">배점 100점</span>
+                                </div>
+                                <h3 class="text-base font-extrabold text-slate-900">
+                                    <a th:href="@{/classes/{cId}/assignments/{aId}(cId=${classroom.id}, aId=${a.id})}" th:text="${a.title}" class="hover:text-blue-600">과제 제목</a>
+                                </h3>
+                                <p th:if="${a.description}" class="text-xs text-slate-500 mt-1 line-clamp-2" th:text="${a.description}"></p>
+                            </div>
+
+                            <div class="flex items-center gap-3">
+                                <!-- 교수용 Speed Grader 버튼 -->
+                                <div th:if="${isInstructor}" class="flex items-center gap-2">
+                                    <span class="text-xs text-slate-500 font-semibold mr-2" th:text="'제출 ' + ${a.totalSubmissions} + ' / ' + ${a.totalEnrolledStudents} + '명'">0/0명</span>
+                                    <a th:href="@{/classes/{cId}/assignments/{aId}/speedgrader(cId=${classroom.id}, aId=${a.id})}"
+                                       class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs shadow transition active:scale-95 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-bolt"></i>
+                                        <span>Speed Grader</span>
+                                    </a>
+                                    <a th:href="@{/classes/{cId}/assignments/{aId}(cId=${classroom.id}, aId=${a.id})}"
+                                       class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+                                        현황표
+                                    </a>
+                                </div>
+
+                                <!-- 학생용 제출 상태 버튼 -->
+                                <div th:unless="${isInstructor}">
+                                    <a th:href="@{/classes/{cId}/assignments/{aId}(cId=${classroom.id}, aId=${a.id})}"
+                                       class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow transition active:scale-95 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                                        <span th:text="${a.submitted} ? '제출 수정 / 피드백' : '과제 제출하기'">과제 제출하기</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ---------------------------------------- -->
+            <!-- [TAB 4] 출석 (Attendance)               -->
+            <!-- ---------------------------------------- -->
+            <div th:if="${currentTab == 'attendance'}" class="space-y-6">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">실시간 간편 출석 현황</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">교탁 빔프로젝터 4자리 인증번호를 통한 스마트 간편 출석 시스템입니다.</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <a th:href="@{/classes/{id}/attendance(id=${classroom.id})}"
+                           class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold text-xs shadow transition active:scale-95">
+                            <i class="fa-solid fa-up-right-from-square"></i>
+                            <span>출석 전용 대시보드 열기</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 출석 세션 일람 카드 -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div th:each="s : ${attendanceSessions}" class="p-5 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span th:if="${s.active}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 animate-pulse">진행 중</span>
+                                <span th:unless="${s.active}" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">마감됨</span>
+                                <span class="text-xs text-slate-400" th:text="${s.startedAt}">2026-10-10</span>
+                            </div>
+                            <h3 class="font-extrabold text-slate-900 text-base" th:text="${s.title}">1주차 1차시 출석</h3>
+                            <div class="flex items-center gap-4 mt-3 text-xs font-semibold text-slate-600">
+                                <span>출석: <strong class="text-emerald-600" th:text="${s.presentCount}">0</strong>명</span>
+                                <span>지각: <strong class="text-amber-600" th:text="${s.lateCount}">0</strong>명</span>
+                                <span>결석: <strong class="text-rose-600" th:text="${s.absentCount}">0</strong>명</span>
+                            </div>
+                        </div>
+
+                        <div th:if="${isInstructor}" class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+                            <span class="text-xs font-mono text-slate-400">인증코드: <strong class="text-blue-600 font-bold" th:text="${s.authCode}">****</strong></span>
+                            <a th:href="@{/classes/{cId}/attendance/sessions/{sId}(cId=${classroom.id}, sId=${s.sessionId})}"
+                               class="text-xs font-bold text-blue-600 hover:underline">
+                                빔프로젝터 스크린 &rarr;
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ---------------------------------------- -->
+            <!-- [TAB 5] 성적부 (Grades)                 -->
+            <!-- ---------------------------------------- -->
+            <div th:if="${currentTab == 'grades'}" class="space-y-6">
+                <!-- 상단 헤더 및 다운로드 액션 -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">
+                            <span th:if="${isInstructor}">수업 종합 성적부 (GradeBook)</span>
+                            <span th:unless="${isInstructor}">내 학업 성적 및 종합 평가 (My Grade)</span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">
+                            <span th:if="${isInstructor}">과제 취득 점수(80%)와 출석률(20%)을 종합 집계한 전체 수강생 성적부입니다.</span>
+                            <span th:unless="${isInstructor}">본인의 과제 제출 결과와 출석률을 종합 집계한 개인 성적표입니다. (타 학생 성적 및 학급 평균은 비공개됩니다)</span>
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- 교수 전용: CSV 내보내기 -->
+                        <a th:if="${isInstructor}" th:href="@{/classes/{id}/export/grades-csv(id=${classroom.id})}"
+                           class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-xs transition shadow-sm"
+                           title="전체 학생 종합 성적부를 CSV 파일로 다운로드">
+                            <i class="fa-solid fa-file-csv text-emerald-600"></i>
+                            <span>성적표 CSV 내보내기</span>
+                        </a>
+
+                        <!-- 학생 전용: 내 포트폴리오 다운로드 -->
+                        <a th:unless="${isInstructor}" th:href="@{/classes/{id}/export/portfolio-zip(id=${classroom.id})}"
+                           class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold text-xs transition shadow-sm"
+                           title="내 모든 과제 제출물 및 교수 피드백 ZIP 다운로드">
+                            <i class="fa-solid fa-file-zipper text-blue-600"></i>
+                            <span>내 과제 포트폴리오 ZIP</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div th:if="${gradeBook == null || gradeBook.studentRows.isEmpty()}" class="p-12 text-center text-slate-400 text-sm">
+                    아직 등록된 성적 데이터가 없습니다.
+                </div>
+
+                <div th:unless="${gradeBook == null || gradeBook.studentRows.isEmpty()}" class="space-y-6">
+
+                    <!--/* [교수 전용] 학급 통계 요약 카드 (학급 평균 성적 노출) */-->
+                    <div th:if="${isInstructor}" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div class="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+                            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-slate-400 block">수강생 수</span>
+                                <span class="text-lg font-black text-slate-800" th:text="${gradeBook.totalStudents} + '명'">0명</span>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-2xl bg-purple-50/60 border border-purple-200/80 shadow-xs flex items-center gap-3.5">
+                            <div class="w-10 h-10 rounded-xl bg-purple-600 text-white flex items-center justify-center text-lg shadow-sm">
+                                <i class="fa-solid fa-graduation-cap"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-purple-700 block">학급 평균 성적</span>
+                                <span class="text-lg font-black text-purple-950" th:text="${gradeBook.classAverageScore != null} ? ${gradeBook.classAverageScore} + '점' : '-'">0.0점</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!--/* [학생 전용] 본인 성적 요약 카드 (학급 평균 비공개, 본인 점수만 노출) */-->
+                    <div th:unless="${isInstructor}" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/80 shadow-xs flex items-center gap-3.5">
+                            <div class="w-11 h-11 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xl shadow-md">
+                                <i class="fa-solid fa-award"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-blue-600 block">내 종합 점수 (학점)</span>
+                                <div class="flex items-baseline gap-1.5">
+                                    <span class="text-xl font-black text-slate-900" th:text="${gradeBook.studentRows[0].totalCompositeScore} + '점'">0점</span>
+                                    <span class="px-2 py-0.5 rounded text-xs font-black bg-blue-600 text-white" th:text="${gradeBook.studentRows[0].letterGrade}">A+</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+                            <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-book-open"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-slate-400 block">과제 취득 점수</span>
+                                <span class="text-base font-black text-slate-800" th:text="${gradeBook.studentRows[0].totalEarnedScore} + ' / ' + ${gradeBook.studentRows[0].totalMaxScore} + '점'">0/0점</span>
+                            </div>
+                        </div>
+
+                        <div class="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex items-center gap-3.5">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-check"></i>
+                            </div>
+                            <div>
+                                <span class="text-xs font-bold text-slate-400 block">내 출석률</span>
+                                <span class="text-base font-black text-emerald-600" th:text="${gradeBook.studentRows[0].attendanceRate} + '%'">100%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 학생 전용 보안/개인정보 안내 배너 -->
+                    <div th:unless="${isInstructor}" class="p-3.5 bg-blue-50/80 border border-blue-200/80 rounded-2xl text-xs text-blue-800 flex items-center gap-2">
+                        <i class="fa-solid fa-shield-halved text-blue-600 text-sm"></i>
+                        <span>본인 성적만 안전하게 열람할 수 있도록 보호되며, 타 학생의 성적 및 학급 전체 평균 점수는 비공개 처리됩니다.</span>
+                    </div>
+
+                    <div class="overflow-x-auto max-h-[600px] rounded-2xl border border-slate-200 shadow-sm">
+                        <table class="w-full text-left text-sm divide-y divide-slate-200">
+                        <thead class="sticky top-0 bg-slate-100/95 backdrop-blur-sm text-slate-700 text-xs font-extrabold z-10 border-b border-slate-200 shadow-xs">
+                            <tr>
+                                <th class="p-3.5">학생명</th>
+                                <th class="p-3.5">학번</th>
+                                <th th:each="header : ${gradeBook.assignmentHeaders}" class="p-3.5 whitespace-nowrap">
+                                    <span th:text="${header.title}">과제</span>
+                                    <span class="block font-normal text-slate-400 text-[10px]" th:text="'(' + ${header.maxScore} + '점)'">(100점)</span>
+                                </th>
+                                <th class="p-3.5">과제총점</th>
+                                <th class="p-3.5">출석률</th>
+                                <th class="p-3.5 text-blue-600">종합점수</th>
+                                <th class="p-3.5 text-center">학점</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            <tr th:each="row : ${gradeBook.studentRows}" class="hover:bg-slate-50/70 transition">
+                                <td class="p-3.5 font-bold text-slate-900" th:text="${row.studentName}">김학생</td>
+                                <td class="p-3.5 font-mono text-slate-500 text-xs" th:text="${row.studentNo}">20261111</td>
+                                <td th:each="header : ${gradeBook.assignmentHeaders}" class="p-3.5">
+                                    <span th:if="${row.scores.get(header.assignmentId) != null}"
+                                          class="font-bold text-slate-800" th:text="${row.scores.get(header.assignmentId)} + '점'">85점</span>
+                                    <span th:unless="${row.scores.get(header.assignmentId) != null}"
+                                          class="text-xs text-slate-400">
+                                        <span th:if="${row.submissionStatuses.get(header.assignmentId) == 'SUBMITTED'}" class="text-amber-500 font-semibold">채점대기</span>
+                                        <span th:unless="${row.submissionStatuses.get(header.assignmentId) == 'SUBMITTED'}" class="text-slate-300">-</span>
+                                    </span>
+                                </td>
+                                <td class="p-3.5 font-bold text-slate-700" th:text="${row.totalEarnedScore} + ' / ' + ${row.totalMaxScore}">0/0</td>
+                                <td class="p-3.5">
+                                    <span class="font-bold" th:classappend="${row.attendanceRate >= 80} ? 'text-emerald-600' : 'text-rose-600'"
+                                          th:text="${row.attendanceRate} + '%'">100%</span>
+                                </td>
+                                <td class="p-3.5 font-black text-blue-600 text-base" th:text="${row.totalCompositeScore} + '점'">92.5점</td>
+                                <td class="p-3.5 text-center">
+                                    <span class="px-2 py-0.5 rounded text-xs font-black bg-blue-100 text-blue-800" th:text="${row.letterGrade}">A+</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <!-- 우측 사이드바: 수업 현황 및 예정 모듈 (1열 차지) -->
-        <div class="space-y-6">
-            <!-- 1. 수업 상세 정보 카드 -->
-            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-3">
-                <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wider text-slate-500">수업 운영 정보</h3>
-                <div class="space-y-2 text-xs">
-                    <div class="flex justify-between py-1 border-b border-slate-100">
-                        <span class="text-slate-500">개설 학기</span>
-                        <span class="font-bold text-slate-800" th:text="${classroom.semester}">2026-1학기</span>
+            <!-- ---------------------------------------- -->
+            <!-- [TAB 6] 수강생 (Members)                -->
+            <!-- ---------------------------------------- -->
+            <div th:if="${currentTab == 'members'}" class="space-y-6">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-200">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">수강생 명단</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">현재 본 수업에 참여 중인 학생 목록입니다.</p>
                     </div>
-                    <div class="flex justify-between py-1 border-b border-slate-100">
-                        <span class="text-slate-500">과목 코드 / 분반</span>
-                        <span class="font-mono font-bold text-slate-800" th:text="${classroom.courseCode} + ' (' + ${classroom.division} + ')'">CS101 (01분반)</span>
-                    </div>
-                    <div class="flex justify-between py-1 border-b border-slate-100">
-                        <span class="text-slate-500">담당 교수</span>
-                        <span class="font-bold text-slate-800" th:text="${classroom.instructor.name}">홍길동</span>
-                    </div>
-                    <div class="flex justify-between py-1">
-                        <span class="text-slate-500">수업 상태</span>
-                        <span th:if="${not classroom.archived}" class="text-emerald-600 font-bold">진행 중 (Active)</span>
-                        <span th:if="${classroom.archived}" class="text-amber-600 font-bold">보관됨 (Archived)</span>
+                    <span class="text-xs font-bold text-slate-500" th:text="'총 ' + ${enrolledStudents.size()} + '명'">총 0명</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <div th:each="student : ${enrolledStudents}" class="p-4 rounded-xl border border-slate-200 bg-white shadow-sm flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center">
+                            <span th:text="${#strings.substring(student.name, 0, 1)}">김</span>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-sm" th:text="${student.name}">김학생</h3>
+                            <p class="text-xs text-slate-400 font-mono" th:text="${student.studentNo}">20261111</p>
+                            <p class="text-[11px] text-slate-500" th:text="${student.email}">email@univ.ac.kr</p>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. 과제 및 채점 (Phase 1 - 5단계 구현) -->
-            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-4">
-                <div class="flex justify-between items-center">
-                    <h3 class="font-bold text-slate-900 text-base flex items-center gap-1.5">
-                        ✍️ <span>과제 및 제출</span>
+            <!-- ---------------------------------------- -->
+            <!-- [TAB 7] 수업 설정 (Settings - 교수 전용) -->
+            <!-- ---------------------------------------- -->
+            <div th:if="${currentTab == 'settings' && isInstructor}" class="space-y-8 max-w-3xl">
+                <!-- 1. 기본 수업 정보 카드 -->
+                <div class="p-6 rounded-2xl border border-slate-200 bg-white space-y-4">
+                    <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-blue-600"></i>
+                        <span>수업 기본 정보</span>
                     </h3>
-                    <a th:if="${isInstructor}" th:href="@{'/classes/' + ${classroom.id} + '/assignments/new'}"
-                       class="text-[11px] px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-2xs transition">
-                        + 과제 출제
-                    </a>
-                    <span th:unless="${isInstructor}" class="text-[11px] font-bold text-slate-500"
-                          th:text="'총 ' + ${assignments != null ? #lists.size(assignments) : 0} + '개'">총 0개</span>
-                </div>
-
-                <!-- 과제 목록 -->
-                <div th:if="${#lists.isEmpty(assignments)}" class="p-4 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                    등록된 과제가 없습니다.
-                </div>
-
-                <div th:unless="${#lists.isEmpty(assignments)}" class="space-y-2.5">
-                    <a th:each="a : ${assignments}"
-                       th:href="@{'/classes/' + ${classroom.id} + '/assignments/' + ${a.id}}"
-                       class="block p-3 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 transition group">
-                        <div class="flex justify-between items-start gap-2">
-                            <span class="font-bold text-xs text-slate-800 group-hover:text-blue-600 transition line-clamp-1"
-                                  th:text="${a.title}">과제 제목</span>
-                            <span class="text-[10px] font-extrabold whitespace-nowrap px-1.5 py-0.5 rounded"
-                                  th:classappend="${a.isExpired ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}"
-                                  th:text="${a.dDayString}">D-3</span>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-xs text-slate-400 block font-semibold">과목 코드 / 분반</span>
+                            <span class="font-bold text-slate-800" th:text="${classroom.courseCode} + ' (' + ${classroom.division} + ')'">CS101</span>
                         </div>
-                        <div class="flex justify-between items-center mt-2 text-[11px]">
-                            <span class="text-slate-400 font-mono" th:text="${a.formattedDueDate}">2026-04-10 23:59</span>
-                            <!-- 교수 시점: 제출 인원수 -->
-                            <span th:if="${isInstructor}" class="font-bold text-slate-600">
-                                <span class="text-blue-600" th:text="${a.totalSubmissions}">0</span>/<span th:text="${a.totalEnrolledStudents}">0</span>명 제출
-                            </span>
-                            <!-- 학생 시점: 내 제출 상태 -->
-                            <div th:unless="${isInstructor}">
-                                <span th:if="${a.isSubmitted}" class="font-bold text-emerald-600">✓ 제출완료</span>
-                                <span th:unless="${a.isSubmitted}" class="font-bold text-rose-500">미제출</span>
+                        <div>
+                            <span class="text-xs text-slate-400 block font-semibold">개설 학기</span>
+                            <span class="font-bold text-slate-800" th:text="${classroom.semester}">2026-1학기</span>
+                        </div>
+                        <div class="col-span-2">
+                            <span class="text-xs text-slate-400 block font-semibold">초대 코드</span>
+                            <span class="font-mono font-black text-blue-600 text-base" th:text="${classroom.inviteCode}">CS101A</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 수업 보관(Archive) 관리 카드 -->
+                <div class="p-6 rounded-2xl border border-amber-200 bg-amber-50/40 space-y-4">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                                <i class="fa-solid fa-box-archive text-amber-600"></i>
+                                <span>학기 종료 및 수업 보관 (Archive)</span>
+                            </h3>
+                            <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+                                수업을 보관하면 모든 학생과 교수가 <strong>읽기 전용</strong>으로 전환됩니다.<br>
+                                기존 자료 및 제출물 열람은 유지되나, 신규 과제 제출/채점/출석 진행이 안전하게 차단됩니다.
+                            </p>
+                        </div>
+                        <div>
+                            <form th:if="${!classroom.archived}" th:action="@{/classes/{id}/archive(id=${classroom.id})}" method="post">
+                                <button type="submit" onclick="return confirm('수업을 보관하시겠습니까? 보관 후에는 읽기 전용 상태가 됩니다.');"
+                                        class="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow transition active:scale-95 whitespace-nowrap">
+                                    수업 보관하기
+                                </button>
+                            </form>
+                            <form th:if="${classroom.archived}" th:action="@{/classes/{id}/unarchive(id=${classroom.id})}" method="post">
+                                <button type="submit" onclick="return confirm('수업 보관을 해제하시겠습니까?');"
+                                        class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs shadow transition active:scale-95 whitespace-nowrap">
+                                    보관 해제하기
+                                </button>
+                            </form>
+                        </div>
+                </div>
+
+                <!-- 3. 학기 데이터 백업 & 내보내기 카드 (교수 전용) -->
+                <div th:if="${isInstructor}" class="p-6 rounded-2xl border border-slate-200 bg-white space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <div>
+                            <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                                <i class="fa-solid fa-cloud-arrow-down text-blue-600"></i>
+                                <span>학기 데이터 일괄 백업 및 내보내기</span>
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                                종강 및 학기 마감 시 학생 성적표 및 전체 과제 제출물을 원클릭으로 다운로드하여 로컬/클라우드에 안전하게 보존할 수 있습니다.
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <a th:href="@{/classes/{id}/export/grades-csv(id=${classroom.id})}"
+                               class="px-3.5 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-xs transition shadow-sm flex items-center gap-1.5 whitespace-nowrap">
+                                <i class="fa-solid fa-file-csv text-emerald-600"></i>
+                                <span>성적표 CSV</span>
+                            </a>
+                            <a th:href="@{/classes/{id}/export/submissions-zip(id=${classroom.id})}"
+                               class="px-3.5 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 font-bold text-xs transition shadow-sm flex items-center gap-1.5 whitespace-nowrap">
+                                <i class="fa-solid fa-file-zipper text-purple-600"></i>
+                                <span>제출물 전체 ZIP</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 새 학기 수업 원클릭 복제 & 날짜 자동 시프트 카드 (교수 전용) -->
+                <div th:if="${isInstructor}" class="p-6 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/50 to-white space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-indigo-100 text-indigo-700 border border-indigo-200">원클릭 복제</span>
+                                <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                                    <i class="fa-solid fa-copy text-indigo-600"></i>
+                                    <span>새 학기 수업으로 복제 (Date Shift)</span>
+                                </h3>
                             </div>
+                            <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                                이전 학기 수업의 <strong>주차 커리큘럼(공휴일/시험 설정), 강의자료, 과제 템플릿</strong>을 그대로 복제합니다.<br>
+                                새 학기 개강일을 지정하면 모든 주차 일정과 과제 마감일이 <strong>자동 시프트(+일수)</strong> 계산됩니다.<br>
+                                <span class="text-slate-400 font-medium">※ 수강생 명단, 학생 제출물, 출석 기록 및 성적은 안전하게 제외됩니다.</span>
+                            </p>
                         </div>
-                    </a>
+                        <div>
+                            <button type="button" onclick="toggleCloneModal(true)"
+                                    class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-200 transition active:scale-95 flex items-center gap-2 whitespace-nowrap">
+                                <i class="fa-solid fa-clone"></i>
+                                <span>수업 복제하기</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 3. 실시간 4자리 출석 (Phase 2 타겟) -->
-            <div class="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-sm space-y-3">
-                <div class="flex justify-between items-center">
-                    <h3 class="font-bold text-slate-900 text-base flex items-center gap-1.5">
-                        ⚡ <span>4자리 간편 출석</span>
-                    </h3>
-                    <span class="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-bold border border-indigo-100">Phase 2</span>
-                </div>
-                <p class="text-xs text-slate-500 leading-relaxed">
-                    강의실 스크린에 4자리 번호를 띄우면 모바일로 1초 만에 출석이 완료됩니다.
-                </p>
-                <div class="p-3.5 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                    출석 세션 기능 대기 중
-                </div>
-            </div>
         </div>
-
     </div>
 
-    <!-- 교수 전용: 자료 업로드 모달 레이어 -->
-    <div id="uploadModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-        <div class="bg-white w-full max-w-lg rounded-2xl shadow-xl border border-slate-200 p-6 sm:p-8 space-y-5 animate-in fade-in zoom-in-95 duration-150">
-            <div class="flex justify-between items-center">
-                <div>
-                    <h3 class="text-lg font-bold text-slate-900">새 강의 자료 등록</h3>
-                    <p class="text-xs text-slate-500 mt-0.5">강의 슬라이드, 참고 자료를 업로드합니다.</p>
+    <!-- 4. 강의 자료 업로드 모달 (교수 전용) -->
+    <div id="uploadModal" th:if="${isInstructor && !classroom.archived}" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-lg">새 강의 자료 등록</h3>
+                        <p class="text-xs text-slate-500">학생들에게 공유할 교안 또는 실습 자료를 등록하세요.</p>
+                    </div>
                 </div>
-                <button type="button" onclick="toggleUploadModal(false)" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <button type="button" onclick="toggleUploadModal(false)" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+                    <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
 
-            <!-- 업로드 폼 -->
-            <form th:action="@{'/classes/' + ${classroom.id} + '/materials'}" th:object="${materialForm}" method="post" enctype="multipart/form-data" class="space-y-4">
-                <!-- 대상 주차 선택 -->
+            <form th:action="@{/classes/{id}/materials/upload(id=${classroom.id})}"
+                  th:object="${materialForm}"
+                  method="post"
+                  enctype="multipart/form-data"
+                  class="space-y-4">
+
+                <!-- 주차 선택 -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">등록 주차</label>
-                    <select th:field="*{weekNumber}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option th:each="w : ${weeks}" th:value="${w.weekNumber}" th:text="${w.title}">1주차</option>
+                    <label for="weekSelect" class="block text-xs font-bold text-slate-700 mb-1.5">대상 주차</label>
+                    <select id="weekSelect" th:field="*{weekNumber}" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option th:each="i : ${#numbers.sequence(1, 16)}" th:value="${i}" th:text="${i} + '주차'"></option>
                     </select>
                 </div>
 
                 <!-- 자료 제목 -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">자료 제목 <span class="text-rose-500">*</span></label>
-                    <input type="text" th:field="*{title}" required placeholder="예: 1주차 강의 슬라이드 (PDF)"
-                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <label for="materialTitle" class="block text-xs font-bold text-slate-700 mb-1.5">자료 제목 <span class="text-rose-500">*</span></label>
+                    <input type="text" id="materialTitle" th:field="*{title}" required placeholder="예: 1주차 OT 교안 및 실습 환경 설정"
+                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
                 </div>
 
-                <!-- 자료 설명 -->
+                <!-- 파일 선택 -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">자료 설명 (선택)</label>
-                    <textarea th:field="*{description}" rows="2" placeholder="자료에 대한 부가 안내나 학습 지침을 입력하세요."
-                              class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    <label class="block text-xs font-bold text-slate-700 mb-1.5">첨부 파일 (최대 20MB) <span class="text-rose-500">*</span></label>
+                    <input type="file" th:field="*{file}" required
+                           class="w-full text-xs text-slate-500 file:mr-3 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer" />
                 </div>
 
-                <!-- 파일 선택 (최대 20MB) -->
+                <!-- 설명 -->
                 <div>
-                    <label class="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">첨부 파일 <span class="text-rose-500">* (최대 20MB)</span></label>
-                    <input type="file" name="file" required
-                           class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-200 rounded-xl p-1">
-                    <p class="text-[11px] text-slate-400 mt-1">허용 확장자: PDF, PPT, PPTX, Word, Excel, HWP, ZIP, 이미지</p>
+                    <label for="materialDesc" class="block text-xs font-bold text-slate-700 mb-1.5">상세 안내 (선택)</label>
+                    <textarea id="materialDesc" th:field="*{description}" rows="2" placeholder="자료에 대한 추가 안내 사항을 입력하세요."
+                              class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
                 </div>
 
-                <!-- 공개 설정 -->
-                <div class="pt-2 border-t border-slate-100 space-y-3">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" th:field="*{published}" class="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
-                        <span class="text-xs font-medium text-slate-700">즉시 학생들에게 공개하기</span>
-                    </label>
-
-                    <div>
-                        <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">예약 공개 일시 (선택)</label>
-                        <input type="datetime-local" th:field="*{releaseAt}"
-                               class="w-full px-3 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <p class="text-[10px] text-slate-400 mt-0.5">지정한 일시 이후에 학생들에게 자료가 자동으로 열람/다운로드 가능해집니다.</p>
-                    </div>
-                </div>
-
-                <!-- 제출 버튼 -->
-                <div class="pt-3 flex justify-end gap-2">
-                    <button type="button" onclick="toggleUploadModal(false)"
-                            class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition">
+                <div class="pt-4 flex justify-end gap-2 border-t border-slate-100">
+                    <button type="button" onclick="toggleUploadModal(false)" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition">
                         취소
                     </button>
-                    <button type="submit"
-                            class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition">
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition">
                         업로드 완료
                     </button>
                 </div>
@@ -381,75 +1045,299 @@
         </div>
     </div>
 
-    <!-- 스크립트: 초대 코드 복사 & 알림 배너 자동 페이드아웃 -->
-    <script>
-        function copyInviteCode() {
-            const codeEl = document.getElementById('inviteCodeText');
-            const btnText = document.getElementById('copyBtnText');
-            if (!codeEl) return;
-            const code = codeEl.innerText.trim();
+    <!-- 5. 주차 상세 설정 모달 (교수 전용) -->
+    <div id="sectionEditModal" th:if="${isInstructor && !classroom.archived}" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-sliders"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-lg">주차 학사 일정 설정</h3>
+                        <p class="text-xs text-slate-500">주차 유형(강의/휴강/시험/보강) 및 날짜를 설정하세요.</p>
+                    </div>
+                </div>
+                <button type="button" onclick="toggleSectionEditModal(false)" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
 
-            const notifySuccess = () => {
-                if (btnText) {
-                    btnText.innerText = '복사됨!';
-                    if (window._copyTimer) clearTimeout(window._copyTimer);
-                    window._copyTimer = setTimeout(() => {
-                        btnText.innerText = '복사';
-                    }, 2000);
-                }
-            };
+            <form id="sectionEditForm" method="post" class="space-y-4">
+                <!-- 주차 제목 -->
+                <div>
+                    <label for="secTitle" class="block text-xs font-bold text-slate-700 mb-1.5">주차 제목</label>
+                    <input type="text" id="secTitle" name="title" required
+                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                </div>
 
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(code).then(notifySuccess).catch(() => {
-                    fallbackCopyText(code, notifySuccess);
-                });
-            } else {
-                fallbackCopyText(code, notifySuccess);
-            }
-        }
+                <!-- 주차 유형 -->
+                <div>
+                    <label for="secType" class="block text-xs font-bold text-slate-700 mb-1.5">주차 유형 (학사 일정 성격)</label>
+                    <select id="secType" name="sectionType" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="LECTURE">일반 강의 (LECTURE)</option>
+                        <option value="HOLIDAY">휴강 / 공휴일 (HOLIDAY)</option>
+                        <option value="EXAM">시험 주간 (EXAM)</option>
+                        <option value="MAKEUP">보강 주차 (MAKEUP)</option>
+                        <option value="SPECIAL">특강 / 발표 (SPECIAL)</option>
+                    </select>
+                </div>
 
-        function fallbackCopyText(text, callback) {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "fixed";
-            textArea.style.left = "-999999px";
-            textArea.style.top = "-999999px";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                if (callback) callback();
-            } catch (err) {
-                console.error('Fallback copy failed', err);
-            } finally {
-                document.body.removeChild(textArea);
-            }
-        }
+                <!-- 캘린더 날짜 범위 -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="secStartDate" class="block text-xs font-bold text-slate-700 mb-1.5">시작일</label>
+                        <input type="date" id="secStartDate" name="startDate"
+                               class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    </div>
+                    <div>
+                        <label for="secEndDate" class="block text-xs font-bold text-slate-700 mb-1.5">종료일</label>
+                        <input type="date" id="secEndDate" name="endDate"
+                               class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    </div>
+                </div>
 
-        // 업로드 모달 열기/닫기
-        function toggleUploadModal(show) {
-            const modal = document.getElementById('uploadModal');
-            if (modal) {
-                if (show) {
-                    modal.classList.remove('hidden');
-                } else {
-                    modal.classList.add('hidden');
-                }
-            }
-        }
+                <!-- 특별 공지/휴강 안내 문구 -->
+                <div>
+                    <label for="secNotice" class="block text-xs font-bold text-slate-700 mb-1.5">특별 공지 / 휴강 안내문 (선택)</label>
+                    <textarea id="secNotice" name="noticeText" rows="2" placeholder="예: 추석 연휴로 인한 휴강입니다. 대체 보강일은 추후 공지합니다."
+                              class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                </div>
 
-        // 알림 배너 자동 페이드아웃
-        ['alertSuccessBanner', 'materialSuccessBanner', 'materialErrorBanner'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                setTimeout(() => {
-                    el.classList.add('opacity-0');
-                    setTimeout(() => el.remove(), 500);
-                }, 3500);
-            }
-        });
-    </script>
+                <!-- 숨김 여부 -->
+                <div class="flex items-center gap-2 pt-1">
+                    <input type="checkbox" id="secHidden" name="isHidden" value="true" class="rounded text-blue-600 focus:ring-blue-500" />
+                    <label for="secHidden" class="text-xs text-slate-600 font-semibold cursor-pointer">
+                        학생에게 이 주차 숨기기 (공개 준비 중이거나 공강 처리 시)
+                    </label>
+                </div>
+
+                <div class="pt-4 flex justify-end gap-2 border-t border-slate-100">
+                    <button type="button" onclick="toggleSectionEditModal(false)" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition">
+                        취소
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md transition">
+                        설정 저장
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 6. 새 주차 / 보강 주차 추가 모달 (교수 전용) -->
+    <div id="addSectionModal" th:if="${isInstructor && !classroom.archived}" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-plus"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-lg">새 주차 / 보강 추가</h3>
+                        <p class="text-xs text-slate-500">학기말 보강이나 추가 특강 섹션을 생성합니다.</p>
+                    </div>
+                </div>
+                <button type="button" onclick="toggleAddSectionModal(false)" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form th:action="@{/classes/{id}/sections/new(id=${classroom.id})}" method="post" class="space-y-4">
+                <div>
+                    <label for="newSecTitle" class="block text-xs font-bold text-slate-700 mb-1.5">주차/섹션 이름 (선택)</label>
+                    <input type="text" id="newSecTitle" name="title" placeholder="미입력 시 'N주차 (보강)'으로 자동 부여됩니다"
+                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none" />
+                </div>
+
+                <div>
+                    <label for="newSecType" class="block text-xs font-bold text-slate-700 mb-1.5">섹션 성격</label>
+                    <select id="newSecType" name="sectionType" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+                        <option value="MAKEUP" selected>보강 주차 (MAKEUP)</option>
+                        <option value="LECTURE">일반 정규 강의 (LECTURE)</option>
+                        <option value="SPECIAL">특강 / 발표 (SPECIAL)</option>
+                    </select>
+                </div>
+
+                <div class="pt-4 flex justify-end gap-2 border-t border-slate-100">
+                    <button type="button" onclick="toggleAddSectionModal(false)" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition">
+                        취소
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-500/20 transition">
+                        추가하기
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 5. 수업 원클릭 복제 & 날짜 자동 시프트 모달 (교수 전용) -->
+    <div id="cloneModal" th:if="${isInstructor}" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl border border-slate-100 space-y-6">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-copy"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-extrabold text-slate-900 text-lg">새 학기 수업으로 복제</h3>
+                        <p class="text-xs text-slate-500">커리큘럼과 과제 템플릿을 새 학기에 맞게 복제합니다.</p>
+                    </div>
+                </div>
+                <button type="button" onclick="toggleCloneModal(false)" class="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form th:action="@{/classes/{id}/clone(id=${classroom.id})}" th:object="${cloneForm}" method="post" class="space-y-4">
+                <div>
+                    <label for="newName" class="block text-xs font-bold text-slate-700 mb-1.5">새 수업명</label>
+                    <input type="text" id="newName" th:field="*{newName}" required
+                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="newSemester" class="block text-xs font-bold text-slate-700 mb-1.5">새 학기</label>
+                        <input type="text" id="newSemester" th:field="*{newSemester}" required placeholder="예: 2026-2학기"
+                               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    </div>
+                    <div>
+                        <label for="newDivision" class="block text-xs font-bold text-slate-700 mb-1.5">새 분반</label>
+                        <input type="text" id="newDivision" th:field="*{newDivision}" required placeholder="예: 01분반"
+                               class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    </div>
+                </div>
+
+                <div>
+                    <label for="newStartDate" class="block text-xs font-bold text-slate-700 mb-1.5">새 학기 1주차 개강일 (Date Shift 기준일)</label>
+                    <input type="date" id="newStartDate" th:field="*{newStartDate}" required
+                           class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+                    <p class="text-[11px] text-indigo-600 mt-1">
+                        * 지정한 개강일에 맞춰 모든 주차 일정과 과제 마감일이 자동으로 계산되어 배치됩니다.
+                    </p>
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2.5">
+                    <span class="text-xs font-bold text-slate-700 block">복제 옵션 선택</span>
+                    <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                        <input type="checkbox" th:field="*{cloneMaterials}" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                        <span>주차별 강의 자료(Material) 함께 복제</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold text-slate-700">
+                        <input type="checkbox" th:field="*{cloneAssignments}" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                        <span>과제 템플릿 및 마감일 자동 시프트 복제</span>
+                    </label>
+                </div>
+
+                <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
+                    <i class="fa-solid fa-triangle-exclamation mr-1"></i>
+                    이전 학기 학생 제출물, 출석부, 성적은 복제되지 않으며 깨끗한 상태로 새 초대 코드와 함께 시작됩니다.
+                </div>
+
+                <div class="pt-4 flex justify-end gap-2 border-t border-slate-100">
+                    <button type="button" onclick="toggleCloneModal(false)" class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold transition">
+                        취소
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition">
+                        새 학기 수업으로 복제 실행
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </div>
+
+<!-- 초대 코드 복사 & 모달 스크립트 -->
+<script th:inline="javascript">
+    const classroomId = /*[[${classroom.id}]]*/ 1;
+
+    function toggleCloneModal(show) {
+        const modal = document.getElementById('cloneModal');
+        if (modal) {
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+    }
+
+    function copyInviteCode() {
+        const text = document.getElementById('inviteCodeText').innerText.trim();
+        navigator.clipboard.writeText(text).then(() => {
+            const btnText = document.getElementById('copyBtnText');
+            btnText.innerText = '복사됨!';
+            setTimeout(() => { btnText.innerText = '복사'; }, 2000);
+        });
+    }
+
+    function openUploadModal(weekNum) {
+        const select = document.getElementById('weekSelect');
+        if (select && weekNum) {
+            select.value = weekNum;
+        }
+        toggleUploadModal(true);
+    }
+
+    function toggleUploadModal(show) {
+        const modal = document.getElementById('uploadModal');
+        if (modal) {
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+    }
+
+    function openSectionEditModal(btn) {
+        const id = btn.getAttribute('data-id');
+        const title = btn.getAttribute('data-title');
+        const desc = btn.getAttribute('data-desc') || '';
+        const type = btn.getAttribute('data-type');
+        const start = btn.getAttribute('data-start') || '';
+        const end = btn.getAttribute('data-end') || '';
+        const notice = btn.getAttribute('data-notice') || '';
+        const hidden = btn.getAttribute('data-hidden') === 'true';
+
+        const form = document.getElementById('sectionEditForm');
+        form.action = '/classes/' + classroomId + '/sections/' + id + '/update';
+
+        document.getElementById('secTitle').value = title;
+        document.getElementById('secType').value = type;
+        document.getElementById('secStartDate').value = start;
+        document.getElementById('secEndDate').value = end;
+        document.getElementById('secNotice').value = notice;
+        document.getElementById('secHidden').checked = hidden;
+
+        toggleSectionEditModal(true);
+    }
+
+    function toggleSectionEditModal(show) {
+        const modal = document.getElementById('sectionEditModal');
+        if (modal) {
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+    }
+
+    function openAddSectionModal() {
+        toggleAddSectionModal(true);
+    }
+
+    function toggleAddSectionModal(show) {
+        const modal = document.getElementById('addSectionModal');
+        if (modal) {
+            if (show) modal.classList.remove('hidden');
+            else modal.classList.add('hidden');
+        }
+    }
+
+    // 알림 토스트 자동 페이드아웃 (3.5초)
+    ['alertSuccessBanner', 'alertErrorBanner'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            setTimeout(() => {
+                el.classList.add('opacity-0', 'translate-x-4');
+                setTimeout(() => el.remove(), 500);
+            }, 3500);
+        }
+    });
+</script>
 </body>
 </html>

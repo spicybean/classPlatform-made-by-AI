@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${attSession.title} + ' - 실시간 출석 스크린'">출석 스크린 - UniClass</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.92; transform: scale(1.02); }
+        }
+        .code-pulse {
+            animation: pulse-fast 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col font-sans select-none antialiased">
+
+    <!-- 상단 바 -->
+    <header class="bg-slate-900/80 border-b border-slate-800 px-6 py-4 flex justify-between items-center backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow">U</span>
+            <div>
+                <h1 class="font-bold text-base text-slate-100" th:text="${classroom.name} + ' — ' + ${attSession.title}">자료구조 — 1주차 1차시 출석</h1>
+                <p class="text-xs text-slate-400">교탁 빔프로젝터 전체화면 모드</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <!-- 전체화면 토글 버튼 -->
+            <button type="button" onclick="toggleFullScreen()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700 flex items-center gap-1.5">
+                <i class="fa-solid fa-expand"></i> 전체화면
+            </button>
+
+            <!-- 세션 마감 버튼 -->
+            <form th:action="@{/classes/{cId}/attendance/sessions/{sId}/close(cId=${classroom.id}, sId=${attSession.sessionId})}" method="post" class="inline">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                <button type="submit" onclick="return confirm('출석을 지금 마감하시겠습니까?');"
+                        class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition shadow flex items-center gap-1.5">
+                    <i class="fa-solid fa-stop"></i> 출석 마감하기
+                </button>
+            </form>
+        </div>
+    </header>
+
+    <!-- 메인 대형 디스플레이 영역 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-10 flex flex-col items-center justify-center space-y-8">
+
+        <!-- 출석 인증 번호 배너 -->
+        <div class="text-center space-y-3">
+            <span class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                실시간 4자리 출석 인증번호
+            </span>
+
+            <!-- 거대한 4자리 인증번호 타이포그래피 -->
+            <div class="py-4">
+                <div class="code-pulse inline-block font-mono font-black text-7xl sm:text-9xl md:text-[11rem] tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-b from-blue-200 via-white to-blue-300 drop-shadow-[0_10px_35px_rgba(59,130,246,0.5)]">
+                    <span th:text="${attSession.authCode}">4829</span>
+                </div>
+            </div>
+
+            <p class="text-slate-400 text-sm sm:text-base">
+                스마트폰 또는 노트북에서 <strong class="text-white">UniClass</strong> 접속 후 위 4자리 번호를 입력하세요.
+            </p>
+        </div>
+
+        <!-- 실시간 카운트다운 타이머 게이지 -->
+        <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl flex items-center justify-between gap-6">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 text-xl font-bold">
+                    <i class="fa-solid fa-clock"></i>
+                </div>
+                <div>
+                    <span class="text-xs text-slate-400 font-semibold block">남은 출석 시간</span>
+                    <span id="countdownText" class="text-3xl font-black font-mono text-amber-400 tracking-wider">03:00</span>
+                </div>
+            </div>
+
+            <!-- 출석 인원 라이브 현황 -->
+            <div class="text-right">
+                <span class="text-xs text-slate-400 font-semibold block">실시간 출석 인원</span>
+                <span class="text-2xl font-black text-white">
+                    <span id="presentCount" class="text-emerald-400" th:text="${attSession.presentCount}">0</span>
+                    <span class="text-slate-500 font-medium text-lg"> / <span th:text="${attSession.totalStudents}">0</span>명</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- 실시간 출석자 명단 실시간 롤링 피드 -->
+        <div class="w-full max-w-3xl bg-slate-900/60 border border-slate-800 rounded-2xl p-5 shadow-lg">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-user-check text-emerald-400"></i> 실시간 출석 완료 학생
+                </h3>
+                <span id="lastUpdated" class="text-[11px] text-slate-500">실시간 동기화 중...</span>
+            </div>
+
+            <div id="studentTags" class="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1">
+                <th:block th:each="r : ${attSession.records}">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        <strong th:text="${r.studentName}">김학생</strong>
+                        <span class="text-slate-500 text-[10px]" th:text="'(' + ${r.attendedAt} + ')'">(14:02)</span>
+                    </span>
+                </th:block>
+                <div th:if="${#lists.isEmpty(session.records)}" id="emptyPlaceholder" class="text-slate-500 text-xs py-2">
+                    학생들의 출석 번호 입력을 기다리는 중입니다...
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 스크립트: 카운트다운 타이머 및 3초 주기 실시간 현황 폴링 -->
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        let remainingSeconds = /*[[${attSession.remainingSeconds}]]*/ 180;
+        const sessionId = /*[[${attSession.sessionId}]]*/ 1;
+        const classroomId = /*[[${classroom.id}]]*/ 1;
+
+        // 카운트다운 타이머 포맷 함수
+        function updateTimerDisplay() {
+            if (remainingSeconds < 0) remainingSeconds = 0;
+            const mins = Math.floor(remainingSeconds / 60);
+            const secs = remainingSeconds % 60;
+            const str = String(mins).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+            const el = document.getElementById('countdownText');
+            if (el) {
+                el.innerText = str;
+                if (remainingSeconds <= 30) {
+                    el.classList.remove('text-amber-400');
+                    el.classList.add('text-rose-500', 'animate-pulse');
+                }
+            }
+        }
+
+        // 1초마다 타이머 감소
+        updateTimerDisplay();
+        const timerInterval = setInterval(() => {
+            if (remainingSeconds > 0) {
+                remainingSeconds--;
+                updateTimerDisplay();
+            }
+        }, 1000);
+
+        // 3초마다 실시간 출석 현황 폴링
+        async function pollStatus() {
+            try {
+                const res = await fetch(`/classes/${classroomId}/attendance/sessions/${sessionId}/status`);
+                if (!res.ok) return;
+                const data = await res.json();
+
+                // 출석 인원 카운트 갱신
+                const presentEl = document.getElementById('presentCount');
+                if (presentEl) presentEl.innerText = data.presentCount;
+
+                // 타이머 보정
+                if (data.remainingSeconds !== undefined) {
+                    remainingSeconds = data.remainingSeconds;
+                    updateTimerDisplay();
+                }
+
+                // 출석자 태그 목록 갱신
+                const container = document.getElementById('studentTags');
+                if (container && data.records) {
+                    if (data.records.length > 0) {
+                        let html = '';
+                        data.records.forEach(r => {
+                            html += `
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold bg-slate-800 border border-slate-700 text-slate-200">
+                                    <span class="w-1.5 h-1.5 rounded-full ${r.status === 'PRESENT' ? 'bg-emerald-400' : 'bg-amber-400'}"></span>
+                                    <strong>${r.studentName}</strong>
+                                    <span class="text-slate-500 text-[10px]">(${r.attendedAt})</span>
+                                </span>
+                            `;
+                        });
+                        container.innerHTML = html;
+                    }
+                }
+
+                const lastUpdated = document.getElementById('lastUpdated');
+                if (lastUpdated) {
+                    const now = new Date();
+                    lastUpdated.innerText = '동기화됨: ' + now.toLocaleTimeString();
+                }
+
+                if (!data.active) {
+                    const el = document.getElementById('countdownText');
+                    if (el) el.innerText = "마감됨";
+                }
+            } catch (err) {
+                console.error("Polling error:", err);
+            }
+        }
+
+        const pollInterval = setInterval(pollStatus, 3000);
+
+        // 전체화면 토글
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log(err.message);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+        /*]]>*/
+    </script>
+
+</body>
+</html>

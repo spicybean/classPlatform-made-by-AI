@@ -3,11 +3,15 @@ package com.uniclass.domain.assignment.dto;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -25,8 +29,9 @@ public class CreateAssignmentDto {
     @Max(value = 16, message = "주차는 최대 16까지 선택 가능합니다.")
     private Integer weekNumber;
 
-    @NotBlank(message = "마감 일시를 지정해 주세요.")
-    private String dueDate; // yyyy-MM-dd'T'HH:mm
+    @NotNull(message = "마감 일시를 지정해 주세요.")
+    @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
+    private LocalDateTime dueDate;
 
     @Min(value = 1, message = "배점은 최소 1점 이상이어야 합니다.")
     @Max(value = 1000, message = "배점은 최대 1000점까지 가능합니다.")

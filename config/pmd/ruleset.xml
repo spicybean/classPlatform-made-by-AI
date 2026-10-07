@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<ruleset name="UniClass AI Defense Rules"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+    <description>AI의 꼼수(예외 은폐) 및 보안 맹점을 차단하는 핵심 룰셋</description>
+
+    <!-- 에러 은폐 방지 (try-catch 무시 방지) -->
+    <rule ref="category/java/errorprone.xml/EmptyCatchBlock" />
+    <rule ref="category/java/errorprone.xml/ReturnFromFinallyBlock" />
+    
+    <!-- 기본 보안 검증 -->
+    <rule ref="category/java/security.xml/HardCodedCryptoKey" />
+    <!-- rule ref="category/java/security.xml/InsecureCryptoIv" /-->
+</ruleset>

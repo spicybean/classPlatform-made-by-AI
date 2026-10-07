@@ -21,4 +21,8 @@ public interface WeekSectionRepository extends JpaRepository<WeekSection, Long> 
            "WHERE ws.classroom.id = :classroomId " +
            "ORDER BY ws.weekNumber ASC, m.id ASC")
     List<WeekSection> findWithMaterialsByClassroomId(@Param("classroomId") Long classroomId);
+
+    @Query("SELECT COALESCE(MAX(ws.weekNumber), 0) FROM WeekSection ws WHERE ws.classroom.id = :classroomId")
+    int findMaxWeekNumberByClassroomId(@Param("classroomId") Long classroomId);
 }
+

@@ -13,6 +13,7 @@ import com.uniclass.domain.user.entity.Role;
 import com.uniclass.global.security.CustomUserDetails;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +49,9 @@ public class AssignmentController {
     public String newAssignmentPage(@PathVariable("classroomId") Long classroomId,
                                     @AuthenticationPrincipal CustomUserDetails userDetails,
                                     Model model) {
+        if (userDetails == null) {
+            return "redirect:/login";
+        }
         ClassRoom classRoom = classRoomService.getClassRoomDetail(classroomId);
         if (!classRoom.getInstructor().getId().equals(userDetails.getId())) {
             return "redirect:/?error=forbidden";
@@ -69,6 +73,9 @@ public class AssignmentController {
                                    BindingResult bindingResult,
                                    Model model,
                                    RedirectAttributes redirectAttributes) {
+        if (userDetails == null) {
+            return "redirect:/login";
+        }
         ClassRoom classRoom = classRoomService.getClassRoomDetail(classroomId);
         if (!classRoom.getInstructor().getId().equals(userDetails.getId())) {
             return "redirect:/?error=forbidden";
@@ -94,17 +101,21 @@ public class AssignmentController {
      * 과제 상세 페이지 (교수/학생 공통, 권한별 뷰 분기)
      */
     @GetMapping("/{assignmentId}")
+    @PreAuthorize("isAuthenticated()")
     public String assignmentDetail(@PathVariable("classroomId") Long classroomId,
                                    @PathVariable("assignmentId") Long assignmentId,
                                    @AuthenticationPrincipal CustomUserDetails userDetails,
                                    Model model) {
+        if (userDetails == null) {
+            return "redirect:/login";
+        }
         // 인가 검증: 수강생 또는 담당 교수만 접근 가능
         if (!classRoomService.isUserEnrolledOrInstructor(classroomId, userDetails.getId())) {
             return "redirect:/?error=not_enrolled";
         }
 
         ClassRoom classRoom = classRoomService.getClassRoomDetail(classroomId);
-        boolean isInstructor = classRoom.getInstructor().getId().equals(userDetails.getId());
+        boolean isInstructor = classRoom.getInstructor() != null && classRoom.getInstructor().getId().equals(userDetails.getId());
 
         AssignmentResponseDto assignment = assignmentService.getAssignmentDetail(classroomId, assignmentId, userDetails.getId(), isInstructor);
         model.addAttribute("classroom", classRoom);
@@ -130,6 +141,9 @@ public class AssignmentController {
                                    @AuthenticationPrincipal CustomUserDetails userDetails,
                                    @ModelAttribute("submitForm") SubmitAssignmentDto submitForm,
                                    RedirectAttributes redirectAttributes) {
+        if (userDetails == null) {
+            return "redirect:/login";
+        }
         try {
             assignmentService.submitAssignment(classroomId, assignmentId, userDetails.getId(), submitForm);
             redirectAttributes.addFlashAttribute("submissionSuccessMessage", "과제가 성공적으로 제출되었습니다.");
@@ -198,11 +212,18 @@ public class AssignmentController {
                                   @RequestParam(value = "feedback", required = false) String feedback,
                                   @AuthenticationPrincipal CustomUserDetails userDetails,
                                   RedirectAttributes redirectAttributes) {
+        if (userDetails == null) {
+            return "redirect:/login";
+        }
         try {
             assignmentService.gradeSubmission(classroomId, assignmentId, submissionId, userDetails.getId(), score, feedback);
             redirectAttributes.addFlashAttribute("gradeSuccessMessage", "성적이 성공적으로 반영되었습니다.");
+        } catch (OptimisticLockingFailureException e) {
+            redirectAttributes.addFlashAttribute("gradeErrorMessage", "다른 사용자가 동시에 성적을 수정했습니다. 최신 내용을 다시 확인해 주세요.");
+            return "redirect:/classes/" + classroomId + "/assignments/" + assignmentId;
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("gradeErrorMessage", e.getMessage());
+            return "redirect:/classes/" + classroomId + "/assignments/" + assignmentId;
         }
 
         return "redirect:/classes/" + classroomId + "/assignments/" + assignmentId;
@@ -281,6 +302,9 @@ public class AssignmentController {
                                      @RequestParam(value = "action", defaultValue = "save") String action,
                                      @AuthenticationPrincipal CustomUserDetails userDetails,
                                      RedirectAttributes redirectAttributes) {
+        if (userDetails == null) {
+            return "redirect:/login";
+        }
         if (score < 0) {
             redirectAttributes.addFlashAttribute("gradeErrorMessage", "점수는 0점 이상이어야 합니다.");
             return "redirect:/classes/" + classroomId + "/assignments/" + assignmentId + "/speedgrader?studentId=" + studentId;
@@ -289,6 +313,9 @@ public class AssignmentController {
         try {
             assignmentService.gradeStudentInSpeedGrader(classroomId, assignmentId, studentId, userDetails.getId(), score, feedback);
             redirectAttributes.addFlashAttribute("gradeSuccessMessage", "성적이 성공적으로 반영되었습니다.");
+        } catch (OptimisticLockingFailureException e) {
+            redirectAttributes.addFlashAttribute("gradeErrorMessage", "다른 사용자가 동시에 성적을 수정했습니다. 최신 내용을 다시 확인해 주세요.");
+            return "redirect:/classes/" + classroomId + "/assignments/" + assignmentId + "/speedgrader?studentId=" + studentId;
         } catch (Exception e) {
             redirectAttributes.addFlashAttribute("gradeErrorMessage", e.getMessage());
             return "redirect:/classes/" + classroomId + "/assignments/" + assignmentId + "/speedgrader?studentId=" + studentId;

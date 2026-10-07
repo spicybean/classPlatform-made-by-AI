@@ -34,17 +34,20 @@ public class MaterialService {
     private final MaterialRepository materialRepository;
     private final EnrollmentRepository enrollmentRepository;
     private final FileStorageService fileStorageService;
+    private final com.uniclass.domain.assignment.repository.AssignmentRepository assignmentRepository;
 
     public MaterialService(ClassRoomRepository classRoomRepository,
                            WeekSectionRepository weekSectionRepository,
                            MaterialRepository materialRepository,
                            EnrollmentRepository enrollmentRepository,
-                           FileStorageService fileStorageService) {
+                           FileStorageService fileStorageService,
+                           com.uniclass.domain.assignment.repository.AssignmentRepository assignmentRepository) {
         this.classRoomRepository = classRoomRepository;
         this.weekSectionRepository = weekSectionRepository;
         this.materialRepository = materialRepository;
         this.enrollmentRepository = enrollmentRepository;
         this.fileStorageService = fileStorageService;
+        this.assignmentRepository = assignmentRepository;
     }
 
     /**
@@ -80,6 +83,13 @@ public class MaterialService {
         ClassRoom classRoom = classRoomRepository.findById(classroomId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 수업을 찾을 수 없습니다: " + classroomId));
 
+        // 인가 검증: 수강생 또는 담당 교수만 접근 가능
+        boolean isEnrolled = enrollmentRepository.existsByStudentIdAndClassroomIdAndStatus(currentUserId, classroomId, EnrollmentStatus.ENROLLED);
+        boolean isClassInstructor = classRoom.getInstructor().getId().equals(currentUserId);
+        if (!isEnrolled && !isClassInstructor) {
+            throw new IllegalArgumentException("해당 수업에 접근 권한이 없습니다.");
+        }
+
         // 주차 섹션이 없으면 기본 1~16주차 생성
         if (!weekSectionRepository.existsByClassroomId(classroomId)) {
             createDefaultWeeks(classRoom);
@@ -87,15 +97,18 @@ public class MaterialService {
 
         List<WeekSection> sections = weekSectionRepository.findWithMaterialsByClassroomId(classroomId);
 
-        return sections.stream().map(section -> {
-            List<MaterialResponseDto> materialDtos = section.getMaterials().stream()
-                    // 학생인 경우 지금 시점에 공개된 자료만 노출
-                    .filter(m -> isInstructor || m.isAvailableNow())
-                    .map(MaterialResponseDto::from)
-                    .collect(Collectors.toList());
+        return sections.stream()
+                // 학생 시점에서는 숨김(isHidden) 주차는 제외
+                .filter(section -> isInstructor || !section.isHidden())
+                .map(section -> {
+                    List<MaterialResponseDto> materialDtos = section.getMaterials().stream()
+                            // 학생인 경우 지금 시점에 공개된 자료만 노출
+                            .filter(m -> isInstructor || m.isAvailableNow())
+                            .map(MaterialResponseDto::from)
+                            .collect(Collectors.toList());
 
-            return WeekSectionDto.from(section, materialDtos);
-        }).collect(Collectors.toList());
+                    return WeekSectionDto.from(section, materialDtos);
+                }).collect(Collectors.toList());
     }
 
     /**
@@ -110,9 +123,7 @@ public class MaterialService {
             throw new IllegalArgumentException("수업 담당 교수만 자료를 등록할 수 있습니다.");
         }
 
-        if (classRoom.isArchived()) {
-            throw new IllegalArgumentException("종료되어 보관된 수업에는 새로운 자료를 등록할 수 없습니다.");
-        }
+        classRoom.assertEditable();
 
         if (dto.getFile() == null || dto.getFile().isEmpty()) {
             throw new IllegalArgumentException("업로드할 파일을 첨부해 주세요.");
@@ -215,8 +226,129 @@ public class MaterialService {
             throw new IllegalArgumentException("수업 담당 교수만 자료를 삭제할 수 있습니다.");
         }
 
+        material.getClassroom().assertEditable();
+
         fileStorageService.delete(material.getFilePath());
         materialRepository.delete(material);
+    }
+
+    /**
+     * 주차 정보 및 유형/날짜/휴강안내 수정 (교수 전용)
+     */
+    @Transactional
+    public void updateWeekSection(Long classroomId, Long sectionId, com.uniclass.domain.material.dto.UpdateWeekSectionDto dto, Long instructorId) {
+        ClassRoom classRoom = classRoomRepository.findById(classroomId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 수업을 찾을 수 없습니다: " + classroomId));
+
+        if (!classRoom.getInstructor().getId().equals(instructorId)) {
+            throw new IllegalArgumentException("수업 담당 교수만 주차 설정을 변경할 수 있습니다.");
+        }
+
+        classRoom.assertEditable();
+
+        WeekSection section = weekSectionRepository.findById(sectionId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 주차 섹션을 찾을 수 없습니다: " + sectionId));
+
+        if (!section.getClassroom().getId().equals(classroomId)) {
+            throw new IllegalArgumentException("해당 수업의 주차 섹션이 아닙니다.");
+        }
+
+        section.updateSectionInfo(
+                dto.getTitle(),
+                dto.getDescription(),
+                dto.getSectionType(),
+                dto.getStartDate(),
+                dto.getEndDate(),
+                dto.getNoticeText(),
+                dto.isHidden()
+        );
+    }
+
+    /**
+     * 신규 주차 / 보강 주차 추가 (교수 전용)
+     */
+    @Transactional
+    public Long addCustomWeekSection(Long classroomId, String title, com.uniclass.domain.material.entity.SectionType sectionType, Long instructorId) {
+        ClassRoom classRoom = classRoomRepository.findById(classroomId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 수업을 찾을 수 없습니다: " + classroomId));
+
+        if (!classRoom.getInstructor().getId().equals(instructorId)) {
+            throw new IllegalArgumentException("수업 담당 교수만 새 주차를 추가할 수 있습니다.");
+        }
+
+        classRoom.assertEditable();
+
+        int nextWeekNumber = weekSectionRepository.findMaxWeekNumberByClassroomId(classroomId) + 1;
+        String sectionTitle = (title != null && !title.isBlank()) ? title.trim() : (nextWeekNumber + "주차 (보강)");
+
+        WeekSection newSection = WeekSection.builder()
+                .classroom(classRoom)
+                .weekNumber(nextWeekNumber)
+                .title(sectionTitle)
+                .sectionType(sectionType != null ? sectionType : com.uniclass.domain.material.entity.SectionType.MAKEUP)
+                .build();
+
+        return weekSectionRepository.save(newSection).getId();
+    }
+
+    /**
+     * 주차 섹션 삭제 (교수 전용, 자료/과제 미존재 시에만 허용)
+     */
+    @Transactional
+    public void deleteWeekSection(Long classroomId, Long sectionId, Long instructorId) {
+        ClassRoom classRoom = classRoomRepository.findById(classroomId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 수업을 찾을 수 없습니다: " + classroomId));
+
+        if (!classRoom.getInstructor().getId().equals(instructorId)) {
+            throw new IllegalArgumentException("수업 담당 교수만 주차를 삭제할 수 있습니다.");
+        }
+
+        classRoom.assertEditable();
+
+        WeekSection section = weekSectionRepository.findById(sectionId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 주차 섹션을 찾을 수 없습니다: " + sectionId));
+
+        if (!section.getClassroom().getId().equals(classroomId)) {
+            throw new IllegalArgumentException("해당 수업의 주차 섹션이 아닙니다.");
+        }
+
+        if (!section.getMaterials().isEmpty()) {
+            throw new IllegalStateException("해당 주차에 등록된 강의 자료(" + section.getMaterials().size() + "건)가 있어 삭제할 수 없습니다. 자료를 먼저 삭제하거나 이동해 주세요.");
+        }
+
+        if (assignmentRepository.existsByWeekSectionId(sectionId)) {
+            throw new IllegalStateException("해당 주차에 연결된 과제가 존재하여 삭제할 수 없습니다. 과제를 먼저 삭제하거나 수정해 주세요.");
+        }
+
+        weekSectionRepository.delete(section);
+    }
+
+    /**
+     * 원클릭 휴강 전환 / 복구 토글 (교수 전용)
+     */
+    @Transactional
+    public void toggleHoliday(Long classroomId, Long sectionId, String reason, Long instructorId) {
+        ClassRoom classRoom = classRoomRepository.findById(classroomId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 수업을 찾을 수 없습니다: " + classroomId));
+
+        if (!classRoom.getInstructor().getId().equals(instructorId)) {
+            throw new IllegalArgumentException("수업 담당 교수만 휴강 상태를 변경할 수 있습니다.");
+        }
+
+        classRoom.assertEditable();
+
+        WeekSection section = weekSectionRepository.findById(sectionId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 주차 섹션을 찾을 수 없습니다: " + sectionId));
+
+        if (!section.getClassroom().getId().equals(classroomId)) {
+            throw new IllegalArgumentException("해당 수업의 주차 섹션이 아닙니다.");
+        }
+
+        if (section.getSectionType() == com.uniclass.domain.material.entity.SectionType.HOLIDAY) {
+            section.markAsLecture();
+        } else {
+            section.markAsHoliday(reason);
+        }
     }
 
     public record DownloadResult(

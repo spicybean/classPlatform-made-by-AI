@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout/default :: layout(~{::content})}">
+<head>
+    <title>간편 출석 관리 - UniClass</title>
+</head>
+<body>
+<div th:fragment="content" class="max-w-6xl mx-auto space-y-6">
+
+    <!-- 상단 네비게이션 브레드크럼 -->
+    <nav class="flex items-center gap-2 text-xs text-slate-500">
+        <a th:href="@{/classes}" class="hover:text-blue-600 transition">클래스룸</a>
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <a th:href="@{/classes/{id}(id=${classroom.id})}" th:text="${classroom.name}" class="hover:text-blue-600 transition">수업명</a>
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-slate-800 font-semibold">간편 출석 관리</span>
+    </nav>
+
+    <!-- 알림 메시지 배너 -->
+    <div th:if="${successMessage}" class="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span th:text="${successMessage}"></span>
+        </div>
+    </div>
+    <div th:if="${errorMessage}" class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between shadow-sm animate-fade-in">
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span th:text="${errorMessage}"></span>
+        </div>
+    </div>
+
+    <!-- 타이틀 & 출석 시작 카드 -->
+    <div class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-6 sm:p-8 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-white/20 text-white backdrop-blur-sm mb-3">
+                ⚡ 실시간 4자리 간편 출석
+            </span>
+            <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight">출석 관리 대시보드</h1>
+            <p class="text-blue-100 text-xs sm:text-sm mt-1">
+                화면에 4자리 번호를 띄워 3분 만에 출석을 끝내고 실시간으로 출결을 확인하세요.
+            </p>
+        </div>
+
+        <!-- 출석 시작 폼 (카드 내부) -->
+        <div class="bg-white/10 backdrop-blur-md p-4 sm:p-5 rounded-xl border border-white/20 w-full md:w-auto">
+            <form th:action="@{/classes/{id}/attendance/start(id=${classroom.id})}" th:object="${startForm}" method="post" class="flex flex-wrap items-center gap-3">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                
+                <div>
+                    <label class="block text-[11px] font-semibold text-blue-100 mb-1">주차</label>
+                    <select th:field="*{weekNumber}" class="bg-white text-slate-800 text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none">
+                        <option th:each="i : ${#numbers.sequence(1, 16)}" th:value="${i}" th:text="${i} + '주차'"></option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-semibold text-blue-100 mb-1">차시</label>
+                    <select th:field="*{roundNumber}" class="bg-white text-slate-800 text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none">
+                        <option value="1">1차시</option>
+                        <option value="2">2차시</option>
+                        <option value="3">3차시</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[11px] font-semibold text-blue-100 mb-1">유효 시간</label>
+                    <select th:field="*{timeoutMinutes}" class="bg-white text-slate-800 text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none">
+                        <option value="3">3분 (기본)</option>
+                        <option value="5">5분</option>
+                        <option value="10">10분</option>
+                    </select>
+                </div>
+
+                <div class="self-end pt-3 sm:pt-0">
+                    <button type="submit" class="w-full sm:w-auto bg-amber-400 hover:bg-amber-300 text-slate-900 font-extrabold px-4 py-2 rounded-lg text-xs shadow transition flex items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        출석 체크 시작
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 출석 세션 목록 테이블 -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+            <h2 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                <span>📋 출석 세션 히스토리</span>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium" th:text="${#lists.size(sessions)} + '회 진행'">0회</span>
+            </h2>
+        </div>
+
+        <div th:if="${#lists.isEmpty(sessions)}" class="p-12 text-center text-slate-400 text-sm">
+            <svg class="w-12 h-12 mx-auto text-slate-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            아직 진행된 출석 체크가 없습니다. 상단에서 <strong>[출석 체크 시작]</strong>을 눌러 학생들에게 4자리 번호를 공유하세요.
+        </div>
+
+        <div th:unless="${#lists.isEmpty(sessions)}" class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                        <th class="py-3 px-4">주차/차시</th>
+                        <th class="py-3 px-4">인증번호</th>
+                        <th class="py-3 px-4">시작 일시</th>
+                        <th class="py-3 px-4 text-center">출석 현황 (출석/지각/결석)</th>
+                        <th class="py-3 px-4 text-center">상태</th>
+                        <th class="py-3 px-4 text-right">관리</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <tr th:each="s : ${sessions}" class="hover:bg-slate-50/80 transition">
+                        <td class="py-3.5 px-4 font-bold text-slate-800">
+                            <span th:text="${s.title}">1주차 1차시 출석</span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="font-mono font-extrabold text-blue-600 tracking-wider text-sm bg-blue-50 px-2 py-0.5 rounded border border-blue-200" th:text="${s.authCode}">4829</span>
+                        </td>
+                        <td class="py-3.5 px-4 text-slate-500 text-xs" th:text="${s.startedAt}">2026-04-10 14:00</td>
+                        <td class="py-3.5 px-4 text-center">
+                            <span class="font-semibold text-emerald-600" th:text="${s.presentCount} + '명'">0명</span> /
+                            <span class="font-semibold text-amber-600" th:text="${s.lateCount} + '명'">0명</span> /
+                            <span class="font-semibold text-rose-500" th:text="${s.absentCount} + '명'">0명</span>
+                            <span class="text-slate-400 text-xs ml-1" th:text="'(총 ' + ${s.totalStudents} + '명)'">(총 0명)</span>
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            <span th:if="${s.active}" class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 animate-pulse">
+                                ● 진행 중
+                            </span>
+                            <span th:unless="${s.active}" class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500 border border-slate-200">
+                                마감됨
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4 text-right space-x-1">
+                            <!-- 대형 스크린 팝업 열기 -->
+                            <a th:href="@{/classes/{cId}/attendance/sessions/{sId}(cId=${classroom.id}, sId=${s.sessionId})}"
+                               target="_blank"
+                               class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs transition border border-blue-200">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                                대형 스크린
+                            </a>
+
+                            <!-- 수동 마감 버튼 -->
+                            <form th:if="${s.active}" th:action="@{/classes/{cId}/attendance/sessions/{sId}/close(cId=${classroom.id}, sId=${s.sessionId})}" method="post" class="inline">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                                <button type="submit" onclick="return confirm('출석 세션을 조기 마감하시겠습니까? 미입력 학생은 자동 결석 처리됩니다.');"
+                                        class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 font-medium text-xs transition border border-slate-200">
+                                    마감
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

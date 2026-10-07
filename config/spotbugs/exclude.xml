@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- AI가 생성한 DTO나 테스트 클래스에서 발생하는 사소한 직렬화 경고 무시 -->
+    <Match>
+        <Bug pattern="SE_BAD_FIELD" />
+    </Match>
+    <Match>
+        <Bug pattern="SE_NO_SERIALVERSIONID" />
+    </Match>
+    
+    <!-- Lombok 자동 생성 코드(EqualsAndHashCode 등)에서 발생하는 경고 무시 -->
+    <Match>
+        <Class name="~.*\.dto\..*" />
+        <Bug pattern="EQ_DOESNT_OVERRIDE_EQUALS" />
+    </Match>
+
+    <!-- Spring Boot 프레임워크 자체의 의도적 구조를 버그로 오탐하는 것 방지 -->
+    <Match>
+        <Class name="~.*\..*Application" />
+    </Match>
+</FindBugsFilter>

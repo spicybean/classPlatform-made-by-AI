@@ -18,4 +18,7 @@ public interface AssignmentRepository extends JpaRepository<Assignment, Long> {
     Optional<Assignment> findByIdWithClassroomAndInstructor(@Param("id") Long id);
 
     long countByClassroomId(Long classroomId);
+
+    boolean existsByWeekSectionId(Long weekSectionId);
 }
+
