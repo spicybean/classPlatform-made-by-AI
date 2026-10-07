@@ -75,7 +75,13 @@
   - 엔티티 상태 캡슐화(`assertEditable()`) 및 DTO 계층 분리.
   - 보안 난수(인증코드 등) 생성 시 `java.security.SecureRandom` 필수.
 - **Ponytail 린(Lean) 원칙**: 불필요한 과대 엔지니어링 금지, 표준 라이브러리 우선, 명확하고 단순한 코드 작성.
-- **기록 유지**: 작업 완료 시 `PLAN/Progress_Journy/Week_XX.md` 및 `PLAN/TODO.md`에 완료 상태를 동기화.
+- **기록 유지 및 주차 증분 불변식 (Week Increment Rule)**:
+  - **주차 증분(+1) 트리거**: 새로운 캘린더 주(매주 월요일)가 도래하거나 새로운 마일스톤(Phase 전환)에 진입할 때, 직전 주차 번호에 +1을 더한 2자리 포맷(`Week_01`, `Week_02`, `Week_03` ...)으로 새 파일을 개설합니다.
+  - **3대 문서 동시 동기화 의무**: 작업 완료 시 단일 파일에 누적하지 않고 다음 3개 파일을 반드시 세트로 최신화합니다:
+    1. `PLAN/Progress_Journy/Week_{XX}.md`: 일자별 상세 구현 내역, 아키텍처 결정, 커밋 해시 기록.
+    2. `PLAN/CodeReview/Week_{XX}.md`: 보안(BOLA/IDOR), DTO 유효성, 자가 치유(Self-Healing), 테스트 통과 내역 등 감사 일지 기록.
+    3. `PLAN/TODO.md`: 진행 중/완료 태스크 체크박스(`[x]`) 동기화.
+
 
 ---
 

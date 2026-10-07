@@ -1,7 +1,7 @@
 # 📋 UniClass 프로젝트 마스터 TODO 리스트
 
 > **기술 스택**: Java 25 / Spring Boot 3.x / Spring Data JPA / H2 & PostgreSQL / Thymeleaf + Tailwind CSS  
-> **최종 수정일**: 2026-09-25
+> **최종 수정일**: 2026-10-07
 
 ---
 
