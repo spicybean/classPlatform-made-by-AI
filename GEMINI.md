@@ -46,9 +46,10 @@
 ## 2. 무인 자동 리뷰 엔진 및 방어선 (`.agents/` & Git Hook)
 - **무인 트리거 메커니즘 (Zero-Prompt)**:
   - **Rule (`.agents/rules/auto_review.md`)**: 매니페스트 그라운딩 불변식 및 비즈니스 로직 수정 완료 시 AI가 스스로 `claude-audit` 스킬을 호출하도록 시스템 프롬프트 레벨에서 강제.
-  - **Hard Gate (`.git/hooks/pre-commit`)**: 커밋 시 1차로 Gradle 단위 테스트를 실행하여 실패 시 즉시 커밋을 물리적으로 차단(`exit 1`)하며, 2차로 `python scripts/claude_review_cli.py`를 가로채 실행.
+  - **Hard Gate (`.git/hooks/pre-commit`)**: 커밋 시 1차로 Gradle 단위 테스트를 실행하여 실패 시 즉시 커밋을 물리적으로 차단(`exit 1`). 빠른 커밋 주기와 Claude API 쿼터 보호를 위해 Claude 감사는 온디맨드로 분리(`python scripts/claude_review_cli.py`).
 - **프롬프트 인젝션 방어**: Diff 내용은 `<git_diff>` XML 태그로 격리.
-- **청크(Chunking) 분할 리뷰**: 파일 및 개행 문자 단위로 분할하여 구문 절단 방지.
+- **단일 호출 상한선(Cap = 1회) 및 핵심 타겟팅**: 대용량 변경 시 다중 루프 분할을 금지하고, Security/Controller/Service 우선순위로 핵심 파일만 선별하여 단 1회만 호출함으로써 2시간 롤링 쿼터(429) 고갈 원천 차단.
+- **선택적 헤더 주입**: 리뷰 대상 diff에 실제로 포함된 핵심 자바 파일의 선언부만 주입하여 컨텍스트 토큰 중복 낭비 차단.
 - **설계 의도(Intent) 전달**: 실행 시 의도를 주입하여 오탐률 제어.
 - **🚀 Fast-track (우회 조항 및 차단선)**: 단순 UI 오타 수정, 색상 변경, 주석 추가 등 비즈니스 로직 변화가 전혀 없는 경량 작업은 주간 쿼터 보호를 위해 Claude 리뷰를 생략 가능합니다. 단, 파일 변경이 1개라도 **Security 설정, 인증/인가 필터, 권한(RBAC), 결제/정산, DB 엔티티** 관련 수정인 경우 Fast-track 사용을 엄격히 금지합니다.
 - **Gemini의 리뷰 번들 자동 조립 의무 (Manual Hand-off)**: Deep-Track 작업 검증이 끝나면 Gemini Flash는 커밋을 생성하기 전에 터미널에서 변경 사항을 조회하여, 사용자가 Claude Sonnet에 즉시 전달할 수 있는 아래 규격의 **[Claude 리뷰용 번들]** 코드블록을 반드시 최종 출력해야 합니다:

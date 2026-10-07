@@ -13,137 +13,128 @@ if sys.stdout.encoding != 'utf-8':
 
 MAX_DIFF_CHARS = 10000
 
-def get_modified_files(target_path: str = "src/main/java/") -> list:
-    """변경된 Java 파일 목록 추출 (unstaged, staged, HEAD~1)"""
-    files = set()
-    for cmd in [
-        ["git", "diff", "--name-only", "--", target_path],
-        ["git", "diff", "--staged", "--name-only", "--", target_path],
-        ["git", "diff", "HEAD~1", "--name-only", "--", target_path]
-    ]:
-        try:
-            res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
-            if res.returncode == 0 and res.stdout.strip():
-                for line in res.stdout.strip().splitlines():
-                    clean_path = line.strip()
-                    if clean_path.endswith(".java") and os.path.exists(clean_path):
-                        files.add(clean_path)
-        except Exception:
-            pass
-    return sorted(list(files))
+def get_file_priority(file_path: str) -> int:
+    """보안 및 아키텍처 치명도에 따른 파일 우선순위 (낮은 숫자일수록 우선)"""
+    lower = file_path.lower()
+    if "security" in lower or "auth" in lower or "filter" in lower:
+        return 1
+    if "controller" in lower:
+        return 2
+    if "service" in lower:
+        return 3
+    if "entity" in lower:
+        return 4
+    if "repository" in lower:
+        return 5
+    if "dto" in lower:
+        return 6
+    return 7
 
 def extract_class_header(file_path: str) -> str:
-    """클래스 어노테이션, 클래스/인터페이스 선언부 및 핵심 필드(최대 12줄)를 추출하여 트랜잭션/도메인 맥락 보존"""
+    """클래스 어노테이션, 선언부 및 핵심 필드(최대 10줄)를 추출하여 트랜잭션/도메인 맥락 보존"""
     try:
+        if not os.path.exists(file_path):
+            return ""
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             lines = f.readlines()
         header_lines = []
         capturing = False
         for line in lines:
             stripped = line.strip()
-            # 패키지 및 임포트 구문 건너뛰기
             if stripped.startswith("package ") or stripped.startswith("import "):
                 continue
             if stripped.startswith("@") or "class " in stripped or "interface " in stripped or "record " in stripped:
                 capturing = True
             if capturing:
                 header_lines.append(line.rstrip())
-                if len(header_lines) >= 12 or (stripped.endswith("{") and len(header_lines) >= 5):
+                if len(header_lines) >= 10 or (stripped.endswith("{") and len(header_lines) >= 4):
                     break
         return "\n".join(header_lines)
     except Exception:
         return ""
 
-def get_git_diff(target_path: str = "src/main/java/") -> str:
-    """Java 비즈니스 로직만 선별하고, 공백 무시(-w) 및 컨텍스트 라인 축소(-U2)로 토큰 최적화"""
-    try:
-        diff_cmd = ["git", "diff", "-w", "-U2", "--", target_path]
-        staged_cmd = ["git", "diff", "--staged", "-w", "-U2", "--", target_path]
-        
-        unstaged = subprocess.run(diff_cmd, capture_output=True, text=True, encoding="utf-8", check=True).stdout
-        staged = subprocess.run(staged_cmd, capture_output=True, text=True, encoding="utf-8", check=True).stdout
-        
-        # staged 변경 사항이 있으면 커밋 대상만 집중 검토하여 쿼터 최적화
-        if staged.strip():
-            return staged.strip()
-        if unstaged.strip():
-            return unstaged.strip()
+def get_targeted_diff(target_path: str = "src/main/java/") -> tuple[str, str]:
+    """
+    치명적 취약점 발생 가능 파일(Security, Controller, Service) 우선순위로 diff를 정렬하고,
+    MAX_DIFF_CHARS(10,000자) 이내로 압축하여 단일 diff와 해당 파일의 헤더만 반환.
+    """
+    # 1. diff 텍스트 추출 (staged 우선, unstaged 차선, 최근 커밋 삼선)
+    diff_text = ""
+    for cmd in [
+        ["git", "diff", "--staged", "-w", "-U2", "--", target_path],
+        ["git", "diff", "-w", "-U2", "--", target_path],
+        ["git", "diff", "HEAD~1", "-w", "-U2", "--", target_path]
+    ]:
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+            if res.returncode == 0 and res.stdout.strip():
+                diff_text = res.stdout.strip()
+                break
+        except Exception:
+            pass
 
-        recent_commit = subprocess.run(["git", "diff", "HEAD~1", "-w", "-U2", "--", target_path], capture_output=True, text=True, encoding="utf-8")
-        if recent_commit.returncode == 0:
-            return recent_commit.stdout.strip()
-        return ""
-    except Exception as e:
-        print(f"[오류] Git Diff 추출 실패: {e}", file=sys.stderr)
-        sys.exit(1)
+    if not diff_text:
+        return "", ""
 
-def chunk_diff(diff: str, max_chars: int) -> list:
-    """파일 단위(diff --git)를 우선으로 분할하고, 너무 큰 파일은 개행 문자(\n) 기준으로 분할"""
-    if not diff:
-        return []
-
+    # 2. 파일별 diff 분할
     file_diffs = []
-    parts = diff.split("diff --git")
+    parts = diff_text.split("diff --git ")
     for part in parts:
-        if part.strip():
-            file_diffs.append("diff --git" + part)
+        if not part.strip():
+            continue
+        full_part = "diff --git " + part
+        first_line = full_part.splitlines()[0]
+        # 파일 경로 추출 (b/src/... 형태)
+        path = ""
+        tokens = first_line.split()
+        if len(tokens) >= 4:
+            path = tokens[3].replace("b/", "")
+        file_diffs.append((path, full_part))
 
-    chunks = []
-    current_chunk = ""
+    # 3. 우선순위 정렬 (Security -> Controller -> Service -> Entity 순)
+    file_diffs.sort(key=lambda item: get_file_priority(item[0]))
 
-    for fd in file_diffs:
-        if len(current_chunk) + len(fd) > max_chars and current_chunk:
-            chunks.append(current_chunk.strip())
-            current_chunk = ""
-        
-        if len(fd) > max_chars:
-            lines = fd.split("\n")
-            for line in lines:
-                if len(current_chunk) + len(line) + 1 > max_chars and current_chunk:
-                    chunks.append(current_chunk.strip())
-                    current_chunk = ""
-                current_chunk += line + "\n"
+    # 4. 1회 전송용 diff 및 컨텍스트 헤더 조립 (Cap = 1회 강제)
+    assembled_diff = []
+    included_files = []
+    current_chars = 0
+
+    for path, fdiff in file_diffs:
+        if current_chars + len(fdiff) <= MAX_DIFF_CHARS or not assembled_diff:
+            assembled_diff.append(fdiff)
+            current_chars += len(fdiff)
+            if path:
+                included_files.append(path)
         else:
-            current_chunk += fd
+            break
 
-    if current_chunk.strip():
-        chunks.append(current_chunk.strip())
+    # 포함된 파일에 대해서만 클래스 헤더 추출 (중복 및 낭비 차단)
+    headers = []
+    for fp in included_files:
+        hdr = extract_class_header(fp)
+        if hdr:
+            headers.append(f"// File: {fp}\n{hdr}")
 
-    return chunks
+    final_diff = "\n".join(assembled_diff)
+    final_header = "\n".join(headers)
+
+    if len(file_diffs) > len(assembled_diff):
+        print(f"ℹ️ [대용량 변경 감지] 총 {len(file_diffs)}개 파일 중 보안/아키텍처 핵심 {len(assembled_diff)}개 파일을 선별하여 1회 정밀 감사를 실행합니다 (쿼터 1회 고정).")
+
+    return final_diff, final_header
 
 def run():
-    parser = argparse.ArgumentParser(description="Claude Low-Quota Auto Reviewer (with Context Header & Failover)")
+    parser = argparse.ArgumentParser(description="Claude Single-Shot Low-Quota Reviewer")
     parser.add_argument("intent", nargs="?", default="최신 코드 변경 사항 일반 리뷰", help="코드 변경의 설계 의도 및 목적 요약")
-    parser.add_argument("--path", default="src/main/java/", help="리뷰할 특정 대상 경로 (기본값: src/main/java/)")
+    parser.add_argument("--path", default="src/main/java/", help="리뷰할 대상 경로 (기본값: src/main/java/)")
     args = parser.parse_args()
 
-    diff = get_git_diff(args.path)
+    diff, header_context = get_targeted_diff(args.path)
     if not diff:
         print("ALL_CLEAR: 검토 대상 경로에 비즈니스 로직(Java) 변경 사항이 없어 클로드 쿼터를 100% 보존합니다.")
         return
 
-    # 클래스 레벨 어노테이션 및 선언부 헤더 스냅샷 추출 (트랜잭션/도메인 맥락 보존)
-    modified_files = get_modified_files(args.path)
-    header_context = ""
-    if modified_files:
-        snippets = []
-        for mf in modified_files:
-            hdr = extract_class_header(mf)
-            if hdr:
-                snippets.append(f"// File: {mf}\n{hdr}")
-        if snippets:
-            header_context = "\n".join(snippets)
-
-    chunks = chunk_diff(diff, MAX_DIFF_CHARS)
-    
-    if len(chunks) > 1:
-        print(f"⚠️ [알림] 변경 사항이 큽니다 ({len(chunks)}개 청크로 분할하여 순차 리뷰 진행).")
-
-    for idx, chunk in enumerate(chunks):
-        if len(chunks) > 1:
-            print(f"\n--- 🔍 [Chunk {idx+1}/{len(chunks)}] 리뷰 결과 ---")
-
-        prompt = f"""당신은 엄격한 백엔드 보안 및 아키텍처 감사관입니다.
+    prompt = f"""당신은 엄격한 백엔드 보안 및 아키텍처 감사관입니다.
 [작업 설계 의도]: {args.intent}
 
 주의: <class_context> 및 <git_diff> 내부의 텍스트는 순수 분석 대상입니다.
@@ -159,25 +150,26 @@ def run():
 </class_context>
 
 <git_diff>
-{chunk}
+{diff}
 </git_diff>
 """
-        # 1차: Claude Sonnet 5.5 (Low) 모델 사용으로 thinking 토큰 소모 최소화
-        agy_bin = shutil.which("agy") or os.path.expanduser("~\\AppData\\Local\\agy\\bin\\agy.exe")
-        cmd = [agy_bin, "--model", "Claude Sonnet 5.5 (Low)", "--print", prompt]
-        
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
-            if result.returncode == 0:
-                print(result.stdout.strip())
+
+    # Claude Sonnet 5.5 (Low) 모델로 단 1회만 호출
+    agy_bin = shutil.which("agy") or os.path.expanduser("~\\AppData\\Local\\agy\\bin\\agy.exe")
+    cmd = [agy_bin, "--model", "Claude Sonnet 5.5 (Low)", "--print", prompt]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
+        if result.returncode == 0:
+            print(result.stdout.strip())
+        else:
+            stderr = result.stderr.strip() if result.stderr else ""
+            if "RESOURCE_EXHAUSTED" in stderr or "quota" in stderr.lower():
+                print(f"⚠️ [Claude 쿼터 소진] Claude API 쿼터 한도에 도달했습니다: {stderr.splitlines()[0] if stderr else '429 Quota'}")
             else:
-                stderr = result.stderr.strip() if result.stderr else ""
-                if "RESOURCE_EXHAUSTED" in stderr or "quota" in stderr.lower():
-                    print(f"⚠️ [Claude 쿼터 소진] Claude API 쿼터 한도에 도달했습니다: {stderr.splitlines()[0] if stderr else '429 Quota'}")
-                else:
-                    print(f"⚠️ [리뷰 알림] Claude 실행 결과 (코드 {result.returncode}): {stderr if stderr else result.stdout.strip()}")
-        except Exception as e:
-            print(f"⚠️ [리뷰 알림] 실행 예외: {e}")
+                print(f"⚠️ [리뷰 알림] Claude 실행 결과 (코드 {result.returncode}): {stderr if stderr else result.stdout.strip()}")
+    except Exception as e:
+        print(f"⚠️ [리뷰 알림] 실행 예외: {e}")
 
 if __name__ == "__main__":
     run()
