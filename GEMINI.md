@@ -30,9 +30,9 @@
 [Phase 1: 제미나이 코드 구현 (Antigravity Main)]
        │  (매니페스트 스펙을 100% 준수하여 Spring Boot 로직 및 실패 검증 테스트 작성)
        ▼
-[Phase 2: 클로드 자동 적대적 감사 (Claude Audit Skill)] ★ 무인 트리거
-       │  (규칙/Git Hook에 의해 사용자가 지시하지 않아도 백그라운드 자동 점화)
-       │  (`scripts/claude_review_cli.py`가 치명적 결함 및 NPE 검출)
+[Phase 2: 클로드 자동 적대적 감사 (Claude Audit Skill)] ★ 단일 호출 (Cap = 1회)
+       │  (Java 파일 변경 시 scripts/claude_review_cli.py 무인 자동 1회 실행)
+       │  (※ 단, Claude 429 쿼터 고갈 시 수동 리뷰 번들 출력 또는 Codex Failover 전환)
        ▼
 [Phase 3: 제미나이 1회 자가 치유 (Self-Healing)]
        │  (Claude 피드백 반영 ➔ 무조건 1회로 상한선 강제하여 핑퐁 낭비 차단)
@@ -44,15 +44,18 @@
 ---
 
 ## 2. 무인 자동 리뷰 엔진 및 방어선 (`.agents/` & Git Hook)
-- **무인 트리거 메커니즘 (Zero-Prompt)**:
-  - **Rule (`.agents/rules/auto_review.md`)**: 매니페스트 그라운딩 불변식 및 비즈니스 로직 수정 완료 시 AI가 스스로 `claude-audit` 스킬을 호출하도록 시스템 프롬프트 레벨에서 강제.
-  - **Hard Gate (`.git/hooks/pre-commit`)**: 커밋 시 1차로 Gradle 단위 테스트를 실행하여 실패 시 즉시 커밋을 물리적으로 차단(`exit 1`). 빠른 커밋 주기와 Claude API 쿼터 보호를 위해 Claude 감사는 온디맨드로 분리(`python scripts/claude_review_cli.py`).
+- **무인 단일 호출 메커니즘 (Zero-Prompt Single-Shot)**:
+  - **Rule (`.agents/rules/auto_review.md`)**: 매니페스트 그라운딩 불변식 및 Java 비즈니스 로직 수정 완료 시 AI가 백그라운드에서 `claude-audit` 스킬(`python scripts/claude_review_cli.py`)을 **단 1회 무인 자동 실행(Cap = 1회)**합니다.
+  - **Hard Gate (`.git/hooks/pre-commit`)**: 커밋 시 1차로 Gradle 단위 테스트를 실행하여 실패 시 즉시 커밋을 물리적으로 차단(`exit 1`). Git Hook 내부의 Claude 중복 호출을 제거하고 Gradle 결정론적 테스트 게이트에 집중합니다.
 - **프롬프트 인젝션 방어**: Diff 내용은 `<git_diff>` XML 태그로 격리.
 - **단일 호출 상한선(Cap = 1회) 및 핵심 타겟팅**: 대용량 변경 시 다중 루프 분할을 금지하고, Security/Controller/Service 우선순위로 핵심 파일만 선별하여 단 1회만 호출함으로써 2시간 롤링 쿼터(429) 고갈 원천 차단.
 - **선택적 헤더 주입**: 리뷰 대상 diff에 실제로 포함된 핵심 자바 파일의 선언부만 주입하여 컨텍스트 토큰 중복 낭비 차단.
 - **설계 의도(Intent) 전달**: 실행 시 의도를 주입하여 오탐률 제어.
-- **🚀 Fast-track (우회 조항 및 차단선)**: 단순 UI 오타 수정, 색상 변경, 주석 추가 등 비즈니스 로직 변화가 전혀 없는 경량 작업은 주간 쿼터 보호를 위해 Claude 리뷰를 생략 가능합니다. 단, 파일 변경이 1개라도 **Security 설정, 인증/인가 필터, 권한(RBAC), 결제/정산, DB 엔티티** 관련 수정인 경우 Fast-track 사용을 엄격히 금지합니다.
-- **Gemini의 리뷰 번들 자동 조립 의무 (Manual Hand-off)**: Deep-Track 작업 검증이 끝나면 Gemini Flash는 커밋을 생성하기 전에 터미널에서 변경 사항을 조회하여, 사용자가 Claude Sonnet에 즉시 전달할 수 있는 아래 규격의 **[Claude 리뷰용 번들]** 코드블록을 반드시 최종 출력해야 합니다:
+- **🚀 물리적 확장자 기반 Fast-track 분류 불변식**:
+  - **Deep-Track (Claude 1회 감사 필수)**: `src/main/java/` 내 자바 소스코드(`.java`)의 신규 추가, 수정, 삭제는 예외 없이 Deep-Track으로 분류하며 무인 1회 감사를 통과해야 합니다.
+  - **Fast-track (Claude 리뷰 생략 허용)**: Thymeleaf 화면(`.html`), 정적 리소스(`.css`, `.js`), 마크다운 문서(`.md`), 설정 파일(`.yml`) 등 비-자바 파일만 변경된 작업은 쿼터 보존을 위해 Claude 리뷰를 생략하고 Gradle 테스트 후 즉시 커밋합니다.
+- **429 쿼터 고갈 시 비상 수동 번들 전환 (Manual Hand-off Fallback)**:
+  - Claude API 호출 시 `RESOURCE_EXHAUSTED` 또는 `429 Quota`가 반환된 경우에 한하여, Gemini Flash는 커밋 전 터미널에서 변경 사항을 조회하여 사용자가 Claude 웹/앱에 즉시 붙여넣을 수 있는 아래 규격의 **[Claude 리뷰용 번들]** 코드블록을 화면에 최종 출력하고 비상 Codex CLI로 전환합니다:
   ```text
   [리뷰 요청: Deep-Track]
   - 핵심 변경 파일: <파일 경로>
@@ -76,7 +79,7 @@
   - 보안 난수(인증코드 등) 생성 시 `java.security.SecureRandom` 필수.
 - **Ponytail 린(Lean) 원칙**: 불필요한 과대 엔지니어링 금지, 표준 라이브러리 우선, 명확하고 단순한 코드 작성.
 - **기록 유지 및 주차 증분 불변식 (Week Increment Rule)**:
-  - **단일 증분 트리거 (Calendar-driven)**: 주차 번호(`Week_{XX}`)는 Phase/마일스톤과 무관하게 **오직 캘린더 주(매주 월요일 00:00 KST)**가 도래할 때만 직전 번호에 +1을 더한 2자리 포맷(`Week_01`, `Week_02`, `Week_03` ...)으로 새 파일을 개설합니다. (Phase 및 마일스톤 정보는 파일 상단 메타데이터 헤더에 명시).
+  - **활성 주차 연속 증분 트리거 (Active-Sprint-driven)**: 주차 번호(`Week_{XX}`)는 실제 개발 작업이 진행된 **'활성 주차'**를 기준으로 직전 번호에 +1을 더한 2자리 포맷(`Week_01`, `Week_02`, `Week_03`, `Week_04` ...)으로 결번 없이 연속 개설합니다. (작업이 없었던 공백 캘린더 주는 파일을 생성하지 않으며, 실제 작업 착수 시 직전 번호 +1로 개설하고 파일 상단 메타데이터 헤더에 실제 작업 일자 `기간: YYYY-MM-DD ~ YYYY-MM-DD` 및 Phase 정보를 명시).
   - **동기화 주기 (Session/Feature-based)**: 모든 마이크로 커밋마다 문서를 매번 수정하지 않으며, **주요 기능 단위 개발 완료 시점 또는 일일 세션 종료 시점**에 1회 일괄 최신화하여 불필요한 Git diff 및 문서 유지보수 피로도를 차단합니다.
   - **3대 문서 역할 분리 및 세트 동기화**:
     1. `PLAN/Progress_Journy/Week_{XX}.md`: 일자별 상세 구현 내역, 아키텍처 결정, 커밋 해시 기록 (구현 팩트 중심).
@@ -126,12 +129,11 @@ AI는 "무조건 초록불(Pass)"을 만들기 위한 어떠한 치팅이나 조
 
 ---
 
-## 6. OpenAI Codex CLI 활용 및 비상 감사 수칙 (Phase 0 & Failover)
-1. **Phase 0: 사전 규격 전담 (Spec-only)**:
-   - 신규 기능 개발 시작 전, ChatGPT 앱에서 토론한 결과를 바탕으로 오직 **"DB ERD, DTO 규격, API 계약"만 `.ai/specs/<기능>.md`로 생성**하는 용도로만 Codex CLI를 호출합니다.
-   - **절대 금지**: Codex CLI에게 `src/main/java/` 내 자바 소스코드를 직접 작성/수정하게 하는 행위를 전면 금지합니다 (Gemini 작업과의 충돌 및 쿼터 고갈 방지).
-2. **Claude 방전 시 비상 감사관 (Emergency Failover)**:
+## 6. OpenAI Codex CLI 비상 감사 수칙 (Emergency Failover)
+1. **Claude 방전 시 비상 감사관 (Emergency Failover)**:
    - Antigravity 내부 Claude 쿼터가 0%로 고갈(`429` 또는 에러)될 경우, `scripts/claude_review_cli.py`가 자동으로 터미널의 `codex` CLI로 비상 전환(Failover)하여 3줄 불릿 포인트 감사를 이어받습니다.
+2. **절대 금지 사항**:
+   - Codex CLI에게 `src/main/java/` 내 자바 소스코드를 직접 작성/수정하게 하는 행위를 전면 금지합니다 (Gemini 작업과의 충돌 및 쿼터 고갈 방지).
 3. **1일 1~2회 쿼터 상한선(Cap)**:
    - Codex CLI는 일상적인 마이크로 커밋에 무차별 연동하지 않으며, 하루 최대 1~2회로 호출 횟수를 엄격히 제한하여 무료 쿼터를 보존합니다.
 

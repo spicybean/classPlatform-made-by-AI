@@ -12,18 +12,18 @@ description: "비즈니스 코드 수정 후 Claude 자동 리뷰 강제 및 자
 - **동적 적응 원칙**: 특정 언어나 프레임워크 버전(예: Java 25, Spring Boot 4.x)을 규칙에 하드코딩하지 않으며, 현재 프로젝트 매니페스트가 선언하는 스펙을 절대적인 불변 기준으로 삼습니다.
 
 ## 2. 사전 명세(Spec) 준수
-- 코드를 작성하기 전, `.ai/architecture.md` 또는 `.ai/specs/`에 정의된 규격(DB 스키마, DTO, API 계약)을 불변의 기준으로 삼고 준수해야 합니다.
+- 코드를 작성하기 전, `PLAN/` 문서에 정의된 도메인 모델, DTO, API 요구사항을 기준으로 삼고 아키텍처 불변식을 준수해야 합니다.
 
-## 3. 무인 자동 실행 (Zero-Touch Trigger)
-- 사용자가 "리뷰해줘"라고 명시적으로 지시하지 않더라도, `src/main/java/` 내의 핵심 비즈니스 로직(Security, Entity, Service, Controller)을 수정했다면 **작업 완료 선언 전 반드시 `claude-audit` 스킬(`python scripts/claude_review_cli.py "<설계의도>"`)을 백그라운드에서 자동 실행**해야 합니다.
+## 3. 무인 자동 1회 실행 (Zero-Touch Single-Shot)
+- 사용자가 "리뷰해줘"라고 명시적으로 지시하지 않더라도, `src/main/java/` 내의 자바 코드를 수정했다면 **작업 완료 선언 전 반드시 `claude-audit` 스킬(`python scripts/claude_review_cli.py "<설계의도>"`)을 백그라운드에서 단 1회 자동 실행(Cap = 1회)**해야 합니다.
 
 ## 4. 핑퐁 방지 및 자가 치유 상한선 (Max Loop = 1)
 - Claude가 [보안], [런타임 에러/NPE], [엣지 케이스] 결함을 지적한 경우, Gemini는 즉시 1회 자가 수정(Self-Healing)을 수행합니다.
 - 자가 수정은 **무조건 1회로 제한**합니다. 1회 수정 후에도 결함이 지속되거나 테스트가 깨지면 무한 루프를 돌지 말고 작업을 즉시 중단한 뒤 사용자에게 개입을 요청하십시오.
 
-## 5. Fast-track (예외 조항) 및 차단선
-- 단순 텍스트/HTML 오타 수정, CSS 스타일 변경, 주석 추가 등 비즈니스 로직에 영향이 없는 경량 작업은 주간 쿼터 보호를 위해 Claude 리뷰 단계를 생략하고 즉시 커밋합니다.
-- **Fast-track 차단 예외 (하드 룰)**: 파일 변경이 1개라도 **Security 설정, 인증/인가 필터, 권한(RBAC), 결제/정산, DB 엔티티** 관련 수정인 경우 Fast-track 사용을 엄격히 금지하며, 반드시 Claude 리뷰를 통과해야 합니다.
+## 5. 물리적 확장자 기반 Fast-track 분류 불변식
+- **Deep-Track (Claude 1회 감사 필수)**: `src/main/java/` 내 자바 코드(`.java`)의 신규 추가, 수정, 삭제는 예외 없이 Deep-Track으로 분류하며 무인 1회 감사를 통과해야 합니다.
+- **Fast-track (Claude 리뷰 생략 허용)**: Thymeleaf 화면(`.html`), 정적 리소스(`.css`, `.js`), 마크다운 문서(`.md`), 설정 파일(`.yml`) 등 비-자바 파일만 변경된 작업은 쿼터 보존을 위해 Claude 리뷰를 생략하고 Gradle 테스트 통과 후 즉시 커밋합니다.
 
-## 6. Gemini의 리뷰 번들 자동 조립 의무 (Manual Hand-off)
-- 사용자가 수동으로 모델을 전환하거나 추가 정밀 리뷰를 진행할 수 있도록, Deep-Track 검증이 완료되면 Gemini는 커밋 전 터미널에서 변경 사항을 조회하여 클래스 헤더 스냅샷과 `git diff -U10`이 조립된 **[Claude 리뷰용 번들]** 코드블록을 반드시 화면에 최종 출력해야 합니다.
+## 6. 429 쿼터 고갈 시 비상 수동 번들 전환 (Manual Hand-off Fallback)
+- Claude API 호출 시 `RESOURCE_EXHAUSTED` 또는 `429 Quota`가 발생한 경우에 한하여, Gemini는 커밋 전 터미널에서 변경 사항을 조회하여 사용자가 Claude 웹/앱에 즉시 붙여넣을 수 있는 `[Claude 리뷰용 번들]` 코드블록을 화면에 최종 출력하고 비상 Codex CLI로 전환합니다.
