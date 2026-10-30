@@ -1,29 +1,26 @@
 ---
-description: "비즈니스 코드 수정 후 Claude 자동 리뷰 강제 및 자가 치유 규칙"
+description: "계층형 코드 감사(1차 code-auditor 서브에이전트 + 2차 claude-audit CLI) 및 자가 치유 규칙"
 ---
 
-# 자동 코드 리뷰 강제 규칙 (Auto-Review Rule)
+# 계층형 코드 감사 및 자가 치유 규칙 (Hierarchical Review Rule)
 
-이 규칙은 `project_one` 내에서 Java 소스코드를 수정하는 모든 작업에 자동 적용됩니다.
+이 규칙은 `project_one` 내에서 Java 소스코드를 수정하는 모든 작업에 적용됩니다.
 
-## 1. 환경 정합성 및 의존성 불변식 (Manifest-driven Grounding)
-- **매니페스트 기준 탐색**: 소스코드 작성 전 반드시 프로젝트 루트의 빌드 매니페스트(`build.gradle`, `pom.xml`, `package.json` 등)를 확인하여 선언된 언어/런타임 버전 및 프레임워크 버전, 등록된 의존 라이브러리를 정확히 파악해야 합니다.
-- **환각 및 비선언 API 호출 전면 금지**: 빌드 매니페스트에 명시되지 않은 외부 라이브러리를 임의로 호출하거나, 선언된 버전의 공식 스펙을 벗어난 구형/폐기된(Deprecated) API 또는 미지원 신형 문법을 사용하는 환각을 엄격히 금지합니다.
-- **동적 적응 원칙**: 특정 언어나 프레임워크 버전(예: Java 25, Spring Boot 4.x)을 규칙에 하드코딩하지 않으며, 현재 프로젝트 매니페스트가 선언하는 스펙을 절대적인 불변 기준으로 삼습니다.
+## 1. 사전 명세(Spec) 및 매니페스트 준수
+- 소스코드 작성 전 프로젝트 루트 매니페스트(`build.gradle`)의 의존성/버전과 `PLAN/` 문서에 정의된 도메인 모델, DTO, API 요구사항을 준수합니다.
 
-## 2. 사전 명세(Spec) 준수
-- 코드를 작성하기 전, `PLAN/` 문서에 정의된 도메인 모델, DTO, API 요구사항을 기준으로 삼고 아키텍처 불변식을 준수해야 합니다.
+## 2. 계층형 감사 파이프라인
+1. **1차 구조 감사 (`code-auditor` 서브에이전트)**:
+   - 인증/인가, 외부 입력 바인딩, DB 상태 변이(CUD), 복잡한 조인 쿼리 변경 완료 시 `invoke_subagent(TypeName="code-auditor")`에 Git Diff와 파일 경로만 전달해 감사를 수행합니다.
+   - 단순 조회(Read-only), 오타·문구 수정, 비-자바 정적 리소스(`.html`, `.css`, `.js`, `.md`, `.yml`) 변경 시에는 감사를 생략하고 즉시 테스트 및 커밋으로 직행합니다.
+2. **2차 교차 감사 (`claude-audit` CLI — 고위험/마일스톤 검증)**:
+   - Spring Security 설정, 인가 필터, 다중 트랜잭션 경합 등 고위험 코어 로직 변경 또는 주요 기능 완료 시 `python scripts/claude_review_cli.py "<설계의도>"`를 단 1회(`Cap = 1회`) 호출하여 이기종 모델 교차 검증을 수행합니다.
+   - **쿼터 고갈(`429` / `RESOURCE_EXHAUSTED`) Fallback**:
+     1. 터미널의 `codex` CLI로 비상 전환하여 감사를 이어받습니다 (하루 최대 1~2회 제한, `src/main/java/` 코드 직접 수정 금지).
+     2. 또는 사용자가 외부에서 검토할 수 있도록 핵심 파일 선언부(10줄)와 `git diff -U10`을 묶은 `[Claude 리뷰용 번들]` 코드블록을 화면에 출력합니다.
 
-## 3. 무인 자동 1회 실행 (Zero-Touch Single-Shot)
-- 사용자가 "리뷰해줘"라고 명시적으로 지시하지 않더라도, `src/main/java/` 내의 자바 코드를 수정했다면 **작업 완료 선언 전 반드시 `claude-audit` 스킬(`python scripts/claude_review_cli.py "<설계의도>"`)을 백그라운드에서 단 1회 자동 실행(Cap = 1회)**해야 합니다.
+## 3. 자가 치유 상한선 (Max Loop = 1)
+- 감사에서 도출된 결함은 최대 1회 자가 수정(Self-Healing)하며, 1회 수정 후에도 결함이 지속되거나 테스트가 깨지면 무한 루프를 돌지 말고 작업을 중단하고 사용자에게 보고합니다.
 
-## 4. 핑퐁 방지 및 자가 치유 상한선 (Max Loop = 1)
-- Claude가 [보안], [런타임 에러/NPE], [엣지 케이스] 결함을 지적한 경우, Gemini는 즉시 1회 자가 수정(Self-Healing)을 수행합니다.
-- 자가 수정은 **무조건 1회로 제한**합니다. 1회 수정 후에도 결함이 지속되거나 테스트가 깨지면 무한 루프를 돌지 말고 작업을 즉시 중단한 뒤 사용자에게 개입을 요청하십시오.
-
-## 5. 물리적 확장자 기반 Fast-track 분류 불변식
-- **Deep-Track (Claude 1회 감사 필수)**: `src/main/java/` 내 자바 코드(`.java`)의 신규 추가, 수정, 삭제는 예외 없이 Deep-Track으로 분류하며 무인 1회 감사를 통과해야 합니다.
-- **Fast-track (Claude 리뷰 생략 허용)**: Thymeleaf 화면(`.html`), 정적 리소스(`.css`, `.js`), 마크다운 문서(`.md`), 설정 파일(`.yml`) 등 비-자바 파일만 변경된 작업은 쿼터 보존을 위해 Claude 리뷰를 생략하고 Gradle 테스트 통과 후 즉시 커밋합니다.
-
-## 6. 429 쿼터 고갈 시 비상 수동 번들 전환 (Manual Hand-off Fallback)
-- Claude API 호출 시 `RESOURCE_EXHAUSTED` 또는 `429 Quota`가 발생한 경우에 한하여, Gemini는 커밋 전 터미널에서 변경 사항을 조회하여 사용자가 Claude 웹/앱에 즉시 붙여넣을 수 있는 `[Claude 리뷰용 번들]` 코드블록을 화면에 최종 출력하고 비상 Codex CLI로 전환합니다.
+## 4. 최종 커밋 게이트
+- `.git/hooks/pre-commit`을 통해 `.\gradlew.bat test`를 실행하여 실패 시 커밋을 차단(`exit 1`)합니다.

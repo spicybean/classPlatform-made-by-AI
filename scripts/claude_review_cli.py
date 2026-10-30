@@ -50,7 +50,8 @@ def extract_class_header(file_path: str) -> str:
                 if len(header_lines) >= 10 or (stripped.endswith("{") and len(header_lines) >= 4):
                     break
         return "\n".join(header_lines)
-    except Exception:
+    except Exception as e:
+        print(f"ℹ️ [헤더 추출 예외] {file_path}: {e}", file=sys.stderr)
         return ""
 
 def get_targeted_diff(target_path: str = "src/main/java/") -> tuple[str, str]:
@@ -70,8 +71,8 @@ def get_targeted_diff(target_path: str = "src/main/java/") -> tuple[str, str]:
             if res.returncode == 0 and res.stdout.strip():
                 diff_text = res.stdout.strip()
                 break
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"ℹ️ [Git Diff 탐색 예외] {' '.join(cmd)}: {e}", file=sys.stderr)
 
     if not diff_text:
         return "", ""
